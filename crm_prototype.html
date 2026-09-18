@@ -64,15 +64,41 @@
   .btn-wpp:hover { background: #276b2b; }
 
   .chat-box { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #FBF6F0; border-radius: 8px; border: 1px solid #EADFD3; margin-top: 4px; }
-  .chat-msg { max-width: 78%; padding: 7px 10px; border-radius: 10px; font-size: 12.5px; }
-  .chat-msg.entrante { align-self: flex-start; background: #EFE6DC; color: #3A2E28; }
-  .chat-msg.saliente { align-self: flex-end; background: #5B3A29; color: #F3E9DE; }
+  .chat-msg-wrap { display: flex; flex-direction: column; max-width: 78%; }
+  .chat-msg-wrap.entrante { align-self: flex-start; align-items: flex-start; }
+  .chat-msg-wrap.saliente { align-self: flex-end; align-items: flex-end; }
+  .sender-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #A99075; margin-bottom: 2px; padding: 0 2px; }
+  .sender-label.is-auto { color: #B8790B; }
+  .sender-label.is-team { color: #5B8A6B; }
+  .chat-msg { max-width: 100%; padding: 7px 10px; border-radius: 10px; font-size: 12.5px; }
+  .chat-msg.entrante { background: #EFE6DC; color: #3A2E28; }
+  .chat-msg.saliente { background: #5B3A29; color: #F3E9DE; }
+  .chat-msg.saliente.is-auto { background: #8A7460; }
   .chat-meta { font-size: 9.5px; opacity: .65; margin-top: 2px; }
   .chat-input-row { display: flex; gap: 8px; margin-top: 8px; }
   .suggest-box { margin-top: 8px; padding: 10px; background: #FCF3DC; border: 1px solid #EAD190; border-radius: 8px; }
   .suggest-box .lbl { font-size: 10.5px; font-weight: 700; color: #8A6E5A; text-transform: uppercase; margin-bottom: 6px; }
-  .suggest-item { font-size: 12px; color: #5B3A29; background: white; border: 1px solid #EADFD3; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; cursor: pointer; }
-  .suggest-item:hover { background: #FBF6F0; }
+  .suggest-item { font-size: 12px; color: #5B3A29; background: white; border: 1px solid #EADFD3; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
+  .suggest-item .stxt { cursor: default; }
+  .btn-usar-respuesta {
+    margin-top: 6px; border: 1px solid #C9A876; background: #FFF8EA; color: #8A6E5A; font-size: 10.5px; font-weight: 700;
+    padding: 4px 9px; border-radius: 6px; cursor: pointer;
+  }
+  .btn-usar-respuesta:hover { background: #FCEBC8; }
+  .status-strip {
+    display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; padding: 6px 8px; background: #F5EEE4;
+    border-radius: 7px; font-size: 10.5px; color: #6B584A;
+  }
+  .status-strip .sp { white-space: nowrap; }
+  .status-strip .sp b { color: #3A2E28; }
+  .chat-alert {
+    font-size: 11px; padding: 6px 9px; border-radius: 7px; margin-top: 6px; font-weight: 600;
+  }
+  .chat-alert.warn { background: #FCEBC8; color: #8A5A0B; border: 1px solid #EAD190; }
+  .chat-alert.danger { background: #FBE2DE; color: #A13A2C; border: 1px solid #EFC3BA; }
+  .chat-alert.info { background: #E3EDE7; color: #2E6B4A; border: 1px solid #C7DED2; }
+  .lead-brief { font-size: 11px; line-height: 1.5; padding: 8px 10px; margin-top: 6px; background: #EFF6F0; border: 1px solid #CFE3D4; border-radius: 7px; color: #2E5B3E; }
+  .lead-brief b { text-transform: uppercase; font-size: 9.5px; letter-spacing: .3px; color: #4A7A5B; display: block; margin-bottom: 3px; }
 
   .convo-list { display: flex; flex-direction: column; gap: 6px; }
   .convo-item {
@@ -236,14 +262,18 @@
   .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; margin-bottom:20px; }
   .cal-day { background:white; border:1px solid #EADFD3; border-radius:10px; padding:9px; min-height:150px; }
   .cal-day.today { border-color:#8A6E5A; box-shadow:0 0 0 1px #8A6E5A inset; }
+  .cal-day.outside { opacity:.4; }
+  .cal-day.mes-day { min-height:92px; padding:6px; }
   .cal-day-header { font-size:11px; font-weight:700; color:#5B3A29; text-transform:capitalize; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #F0E8DE; }
   .cal-item { font-size:10.5px; padding:4px 6px; border-radius:6px; margin-bottom:5px; cursor:pointer; line-height:1.3; }
+  .cal-item.mini { font-size:9px; padding:2px 4px; margin-bottom:3px; }
   .cal-item .t { font-weight:700; display:block; }
   .cal-item.call { background:#E4EEF5; color:#2B5578; }
   .cal-item.follow { background:#FCEBC8; color:#8A5A0B; }
   .cal-item.payment { background:#FBE4E1; color:#A43128; }
   .cal-item.checkin { background:#DDEFDD; color:#2E7D32; }
   .cal-empty { font-size:10.5px; color:#C7B6A6; }
+  #calModeSemana.cal-mode-active, #calModeMes.cal-mode-active { background:#5B3A29; color:white; border-color:#5B3A29; }
 
   .team-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap:10px; }
   .team-card { background:white; border:1px solid #EADFD3; border-radius:10px; padding:12px 14px; }
@@ -347,6 +377,12 @@
       </div>
       <div class="filters">
         <select id="fCalResp"><option value="">Responsable: todos</option></select>
+        <button class="btn-ghost" id="calModeSemana">Semana</button>
+        <button class="btn-ghost" id="calModeMes">Mes</button>
+        <button class="btn-ghost" id="calPrev">◀</button>
+        <button class="btn-ghost" id="calHoy">Hoy</button>
+        <button class="btn-ghost" id="calNext">▶</button>
+        <span id="calRangeLabel" style="font-size:12px;font-weight:700;color:#5B3A29;align-self:center;margin-left:6px"></span>
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <div class="section-title">Pendientes por persona (no atados a un día específico)</div>
@@ -480,6 +516,9 @@
       </div>
 
       <div id="recsPanel" class="recs-panel" style="display:none"></div>
+      <div class="demo-banner" id="trackerRestrictedNote" style="display:none;background:#FCEBC8;border-color:#EAD190;color:#8A5A0B">
+        Acá ves los números de volumen (leads, bookings, shows, sales). Los totales de ingresos, costos y porcentajes de este panel solo los ve Paula, Marie y Juan.
+      </div>
 
       <div class="tracker-kpi-grid" id="trackerKpis"></div>
 
@@ -664,7 +703,7 @@ async function loadLeads(){
   const rows = await sql(`
     select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.canal, l.campana, l.edad_hijo, l.motivo,
       l.estado, l.temperatura, l.responsable_id, u.nombre as responsable, l.producto_id, p.nombre as producto,
-      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion, l.manychat_id, l.entrada_manychat
+      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion, l.manychat_id, l.entrada_manychat, l.lead_brief
     from leads l
     left join users u on u.id = l.responsable_id
     left join products p on p.id = l.producto_id
@@ -1144,24 +1183,57 @@ function renderPriority(){
 }
 
 // ---------- CALENDARIO ----------
+// El calendario tiene vista semanal (semana calendario, lunes a domingo) y
+// vista mensual (mes completo en grilla). calAnchor guarda la fecha de
+// referencia y se mueve con ◀ / Hoy / ▶ según el modo activo.
+let calMode = 'semana';
+let calAnchor = new Date();
+function startOfWeek(d){ const r = new Date(d); const day = (r.getDay() + 6) % 7; r.setDate(r.getDate() - day); r.setHours(0,0,0,0); return r; }
+function itemsForDay(day, fr){
+  const items = [];
+  calls.forEach(c => { if (sameDay(c.fecha, day) && (!fr || c.closer === fr)) items.push({cls:'call', t:c.hora||'', txt:`Llamada: ${c.lead_nombre} (${c.closer||'sin asignar'})`}); });
+  leads.forEach(l => { if (sameDay(l.fecha_proxima_accion, day) && (!fr || l.responsable === fr) && l.temperatura !== "CLIENTE") items.push({cls:'follow', t:'Seguimiento', txt:`${l.proxima_accion||'Seguir'}: ${l.nombre} (${l.responsable||'sin asignar'})`}); });
+  payments.forEach(p => { if (sameDay(p.vence, day) && p.estado !== "Pagada" && (!fr || p.responsable === fr)) items.push({cls:'payment', t:'Cuota', txt:`${p.cliente} — $${p.monto} (${p.responsable||'sin asignar'})`}); });
+  clients.forEach(c => { if (sameDay(c.proxima_sesion, day) && (!fr || c.responsable === fr)) items.push({cls:'checkin', t:'Check-in/sesión', txt:`${c.nombre} (${c.responsable||'sin asignar'})`}); });
+  items.sort((a,b) => (a.t||'').localeCompare(b.t||''));
+  return items;
+}
 function renderCalendario(){
   const fr = document.getElementById('fCalResp').value;
   const today = new Date();
-  const days = [];
-  for (let i=0; i<7; i++){ const d = new Date(); d.setDate(today.getDate()+i); days.push(d); }
+  document.getElementById('calModeSemana').classList.toggle('cal-mode-active', calMode==='semana');
+  document.getElementById('calModeMes').classList.toggle('cal-mode-active', calMode==='mes');
 
-  document.getElementById('calGrid').innerHTML = days.map(day => {
-    const items = [];
-    calls.forEach(c => { if (sameDay(c.fecha, day) && (!fr || c.closer === fr)) items.push({cls:'call', t:c.hora||'', txt:`Llamada: ${c.lead_nombre} (${c.closer||'sin asignar'})`}); });
-    leads.forEach(l => { if (sameDay(l.fecha_proxima_accion, day) && (!fr || l.responsable === fr) && l.temperatura !== "CLIENTE") items.push({cls:'follow', t:'Seguimiento', txt:`${l.proxima_accion||'Seguir'}: ${l.nombre} (${l.responsable||'sin asignar'})`}); });
-    payments.forEach(p => { if (sameDay(p.vence, day) && p.estado !== "Pagada" && (!fr || p.responsable === fr)) items.push({cls:'payment', t:'Cuota', txt:`${p.cliente} — $${p.monto} (${p.responsable||'sin asignar'})`}); });
-    clients.forEach(c => { if (sameDay(c.proxima_sesion, day) && (!fr || c.responsable === fr)) items.push({cls:'checkin', t:'Check-in/sesión', txt:`${c.nombre} (${c.responsable||'sin asignar'})`}); });
-    items.sort((a,b) => (a.t||'').localeCompare(b.t||''));
-    return `<div class="cal-day ${sameDay(day, today) ? 'today' : ''}">
-      <div class="cal-day-header">${day.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit', month:'2-digit'})}</div>
-      ${items.length ? items.map(it => `<div class="cal-item ${it.cls}"><span class="t">${it.t}</span>${it.txt}</div>`).join('') : '<div class="cal-empty">Sin pendientes</div>'}
-    </div>`;
-  }).join('');
+  if (calMode === 'semana') {
+    const start = startOfWeek(calAnchor);
+    const days = []; for (let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d); }
+    document.getElementById('calRangeLabel').textContent = `${fmtDateOnly(days[0])} – ${fmtDateOnly(days[6])}`;
+    document.getElementById('calGrid').className = 'cal-grid';
+    document.getElementById('calGrid').innerHTML = days.map(day => {
+      const items = itemsForDay(day, fr);
+      return `<div class="cal-day ${sameDay(day, today) ? 'today' : ''}">
+        <div class="cal-day-header">${day.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit', month:'2-digit'})}</div>
+        ${items.length ? items.map(it => `<div class="cal-item ${it.cls}"><span class="t">${it.t}</span>${it.txt}</div>`).join('') : '<div class="cal-empty">Sin pendientes</div>'}
+      </div>`;
+    }).join('');
+  } else {
+    const y = calAnchor.getFullYear(), m = calAnchor.getMonth();
+    const firstOfMonth = new Date(y, m, 1);
+    const gridStart = startOfWeek(firstOfMonth);
+    const days = []; for (let i=0;i<42;i++){ const d=new Date(gridStart); d.setDate(gridStart.getDate()+i); days.push(d); }
+    document.getElementById('calRangeLabel').textContent = firstOfMonth.toLocaleDateString('es-CL', {month:'long', year:'numeric'});
+    document.getElementById('calGrid').className = 'cal-grid';
+    document.getElementById('calGrid').innerHTML = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d => `<div style="font-size:10px;font-weight:700;color:#8A6E5A;text-align:center;text-transform:uppercase">${d}</div>`).join('')
+      + days.map(day => {
+        const items = itemsForDay(day, fr);
+        const outside = day.getMonth() !== m;
+        return `<div class="cal-day mes-day ${sameDay(day, today) ? 'today' : ''} ${outside ? 'outside' : ''}">
+          <div class="cal-day-header">${day.getDate()}</div>
+          ${items.slice(0,3).map(it => `<div class="cal-item mini ${it.cls}">${it.txt}</div>`).join('')}
+          ${items.length > 3 ? `<div class="cal-empty">+${items.length-3} más</div>` : (items.length ? '' : '')}
+        </div>`;
+      }).join('');
+  }
 
   document.getElementById('teamPending').innerHTML = USERS.map(u => {
     const r = u.nombre;
@@ -1181,6 +1253,19 @@ function renderCalendario(){
   }).join('');
 }
 document.getElementById('fCalResp').addEventListener('input', renderCalendario);
+document.getElementById('calModeSemana').addEventListener('click', () => { calMode='semana'; renderCalendario(); });
+document.getElementById('calModeMes').addEventListener('click', () => { calMode='mes'; renderCalendario(); });
+document.getElementById('calHoy').addEventListener('click', () => { calAnchor=new Date(); renderCalendario(); });
+document.getElementById('calPrev').addEventListener('click', () => {
+  calAnchor = new Date(calAnchor);
+  if (calMode==='semana') calAnchor.setDate(calAnchor.getDate()-7); else calAnchor.setMonth(calAnchor.getMonth()-1);
+  renderCalendario();
+});
+document.getElementById('calNext').addEventListener('click', () => {
+  calAnchor = new Date(calAnchor);
+  if (calMode==='semana') calAnchor.setDate(calAnchor.getDate()+7); else calAnchor.setMonth(calAnchor.getMonth()+1);
+  renderCalendario();
+});
 
 // ---------- LEADS ----------
 function pillClass(t){ return t === "HOT" ? "hot" : t === "WARM" ? "warm" : t === "CLIENTE" ? "cliente" : "cold"; }
@@ -1387,7 +1472,77 @@ document.getElementById('modalDatosToggle').onclick = () => {
 // estado del lead y palabras clave de su último mensaje. Solo las ve
 // Paula/su equipo en el CRM, el lead nunca las ve.
 async function loadMensajesManychat(leadId){
-  return await sql(`select id, direccion, texto, estado_envio, created_at from manychat_messages where lead_id = '${esc(leadId)}' order by created_at asc;`);
+  return await sql(`select id, direccion, texto, estado_envio, enviado_por, created_at from manychat_messages where lead_id = '${esc(leadId)}' order by created_at asc, id asc;`);
+}
+// Etiqueta discreta de quién mandó cada mensaje saliente. Si el mensaje tiene
+// enviado_por (un usuario real del equipo lo mandó desde el CRM), mostramos su
+// nombre y rol. Si no tiene enviado_por, es porque salió directo de una
+// automatización de ManyChat (no por el CRM) — lo marcamos como tal, nunca lo
+// hacemos pasar por escrito a mano.
+const ROL_LABEL = { setter: 'Setter', closer: 'Closer', paula: 'Paula', marie: 'Marie', mentor: 'Mentor' };
+function etiquetaRemitente(m){
+  if (m.direccion === 'entrante') return { texto: 'Lead', cls: '' };
+  if (m.enviado_por) {
+    const u = USERS.find(x => x.id === m.enviado_por);
+    if (u) {
+      const rolTxt = ROL_LABEL[u.rol] || '';
+      return { texto: rolTxt ? `${u.nombre} · ${rolTxt}` : u.nombre, cls: 'is-team' };
+    }
+  }
+  return { texto: 'Automatización · ManyChat', cls: 'is-auto' };
+}
+function tiempoDesde(fecha){
+  const ms = Date.now() - fecha.getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'recién';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+// Alertas puntuales dentro del chat — solo las que aportan algo real para
+// decidir la próxima acción, nunca ruido. Se calculan de los datos reales,
+// nunca se inventan.
+// Al agendar una llamada armamos un brief corto y honesto con lo que YA
+// sabemos del lead (datos del formulario/ficha + sus propios mensajes
+// literales) — no es una interpretación de IA, son los datos reales para que
+// quien tome la llamada (hoy Ileane) no tenga que leer todo el chat desde
+// cero y sepa por dónde indagar el dolor real.
+async function generarYGuardarBrief(leadId){
+  try {
+    const rows = await sql(`select nombre, edad_hijo, motivo, origen, temperatura, estado from leads where id='${esc(leadId)}';`);
+    const l = rows[0];
+    if (!l) return;
+    const msgs = await sql(`select texto from manychat_messages where lead_id='${esc(leadId)}' and direccion='entrante' order by created_at desc limit 4;`);
+    const citas = msgs.slice().reverse().map(m => `"${m.texto}"`).join('  /  ');
+    const partes = [
+      `${l.nombre} — hijo/a: ${l.edad_hijo || 'edad no registrada'}.`,
+      `Llegó por: ${l.origen || 'sin registrar'}. Motivo inicial anotado: ${l.motivo || 'sin motivo registrado'}.`,
+      `Temperatura: ${l.temperatura || '—'}. Estado: ${l.estado || '—'}.`,
+      citas ? `Lo que ella contó en sus propias palabras (de más reciente a más antiguo): ${citas}` : 'Todavía no había escrito mensajes propios al momento de agendar — indagar desde cero en la llamada.',
+    ];
+    await sql(`update leads set lead_brief = '${esc(partes.join(' '))}' where id='${esc(leadId)}';`);
+  } catch(e) { console.error('No se pudo generar el brief del lead', e); }
+}
+function alertasChat(l, msgs){
+  const out = [];
+  if (msgs.length) {
+    const ultimo = msgs[msgs.length - 1];
+    const fechaUltimo = new Date(ultimo.created_at);
+    if (ultimo.direccion === 'saliente') {
+      const horas = (Date.now() - fechaUltimo.getTime()) / 3600000;
+      if (horas >= 24) out.push({ tipo: 'danger', txt: `el lead dejó en visto hace ${tiempoDesde(fechaUltimo)} — nadie respondió desde el último mensaje` });
+      else if (horas >= 3) out.push({ tipo: 'warn', txt: `esperando respuesta del lead hace ${tiempoDesde(fechaUltimo)}` });
+    }
+  }
+  if (l.fecha_proxima_accion) {
+    const f = new Date(l.fecha_proxima_accion);
+    if (!isNaN(f) && f >= new Date(new Date().toDateString())) {
+      out.push({ tipo: 'info', txt: `seguimiento programado para ${fmtDateOnly(f)}${l.proxima_accion ? ': ' + esc(l.proxima_accion) : ''}` });
+    }
+  }
+  return out;
 }
 function sugerenciasParaLead(l, ultimoEntrante){
   const t = (ultimoEntrante||'').toLowerCase();
@@ -1469,26 +1624,63 @@ async function renderConversacion(leadId){
   const msgs = await loadMensajesManychat(leadId);
   const ultimoEntrante = [...msgs].reverse().find(m => m.direccion === 'entrante');
   const sugerencias = sugerenciasParaLead(l, ultimoEntrante ? ultimoEntrante.texto : '');
+  const alertas = alertasChat(l, msgs);
+  // Franja compacta de estado — para no tener que abrir "Datos del lead" solo
+  // para saber en qué va, quién lleva el caso, y cuándo fue el último contacto.
+  const ultimoMsg = msgs.length ? msgs[msgs.length - 1] : null;
+  const statusStrip = `
+    <div class="status-strip">
+      <span class="sp">Etapa: <b>${esc(l.estado || '—')}</b></span>
+      <span class="sp">Responsable: <b>${esc(l.responsable || 'sin asignar')}</b></span>
+      <span class="sp">Último contacto: <b>${ultimoMsg ? tiempoDesde(new Date(ultimoMsg.created_at)) : '—'}</b></span>
+      ${l.proxima_accion ? `<span class="sp">Próximo: <b>${esc(l.proxima_accion)}${l.fecha_proxima_accion ? ' (' + fmtDateOnly(new Date(l.fecha_proxima_accion)) + ')' : ''}</b></span>` : ''}
+    </div>
+  `;
+  const alertsHtml = alertas.map(a => `<div class="chat-alert ${a.tipo}">${a.txt}</div>`).join('');
+  const briefHtml = l.lead_brief ? `<div class="lead-brief"><b>Brief para la llamada</b>${esc(l.lead_brief)}</div>` : '';
   box.innerHTML = `
+    ${statusStrip}
+    ${briefHtml}
+    ${alertsHtml}
     <div class="chat-box" id="chatBox">
-      ${msgs.length ? msgs.map(m => `<div class="chat-msg ${m.direccion}"><div>${m.texto}</div><div class="chat-meta">${fmt(new Date(m.created_at))}${m.direccion==='saliente' && m.estado_envio==='error' ? ' · ⚠️ no se pudo enviar' : ''}</div></div>`).join('') : `<div class="loading-note">${l.entrada_manychat ? esc(l.entrada_manychat) + ' — todavía no escribió un mensaje propio.' : 'Llegó por ManyChat sin escribir texto, todavía no hay un mensaje propio de este lead.'}</div>`}
+      ${msgs.length ? msgs.map(m => {
+        const et = etiquetaRemitente(m);
+        return `<div class="chat-msg-wrap ${m.direccion}">
+          ${et.texto ? `<div class="sender-label ${et.cls}">${et.texto}</div>` : ''}
+          <div class="chat-msg ${m.direccion} ${et.cls==='is-auto' && m.direccion==='saliente' ? 'is-auto' : ''}">
+            <div>${esc(m.texto)}</div>
+            <div class="chat-meta">${fmt(new Date(m.created_at))}${m.direccion==='saliente' && m.estado_envio==='error' ? ' · ⚠️ no se pudo enviar' : ''}</div>
+          </div>
+        </div>`;
+      }).join('') : `<div class="loading-note">${l.entrada_manychat ? esc(l.entrada_manychat) + ' — todavía no escribió un mensaje propio.' : 'Llegó por ManyChat sin escribir texto, todavía no hay un mensaje propio de este lead.'}</div>`}
     </div>
     <div class="chat-input-row">
       <input id="mcMensajeInput" class="fi" placeholder="Escribir mensaje…" style="flex:1" />
       <button class="btn-primary" onclick="enviarMensajeManychat()">Enviar</button>
     </div>
     <div class="suggest-box">
-      <div class="lbl">Sugerido para responder (solo lo ves tú) — clic para usarlo</div>
-      ${sugerencias.map((s,i) => `<div class="suggest-item" onclick="usarSugerencia(${i})"><b>${s.tit}</b><div style="margin-top:3px">${s.msg}</div></div>`).join('')}
+      <div class="lbl">Sugerido para responder (solo lo ves tú)</div>
+      ${sugerencias.map((s,i) => `<div class="suggest-item">
+        <b>${s.tit}</b>
+        <div class="stxt" style="margin-top:3px">${esc(s.msg)}</div>
+        <button type="button" class="btn-usar-respuesta" onclick="usarSugerencia(${i})">Usar respuesta</button>
+      </div>`).join('')}
     </div>
   `;
   window.__sugerenciasActuales = sugerencias;
   const cb = document.getElementById('chatBox'); if (cb) cb.scrollTop = cb.scrollHeight;
 }
+// Copia la sugerencia al cuadro de escritura — NUNCA la manda sola. La idea es
+// que siempre pase por la caja de texto para que el setter/closer la revise,
+// la ajuste si hace falta, y recién ahí apriete Enviar. Si ya había algo
+// escrito a mano, se avisa antes de pisarlo.
 window.usarSugerencia = function(i){
   const input = document.getElementById('mcMensajeInput');
   const s = (window.__sugerenciasActuales || [])[i];
   if (!input || !s) return;
+  if (input.value.trim() && input.value.trim() !== s.msg) {
+    if (!confirm('Ya tienes algo escrito en el cuadro de texto. ¿Reemplazarlo con esta sugerencia?')) return;
+  }
   input.value = s.msg;
   input.focus();
 };
@@ -1598,10 +1790,11 @@ window.markCheckin = async function(){
 // llamada, a quien no se presentó y a quien ya la tuvo y no compró — tres
 // situaciones que necesitan acciones totalmente distintas. Se separan en
 // columnas propias para que se vean de un vistazo (pedido de Paula).
-const pipelineStages = ["Nuevo","Conversando","Seguimiento","Calificado","Llamada agendada","No show","Tuvo llamada, sin compra","Decisión (pensando)","Pago","Cliente"];
+const pipelineStages = ["Nuevo","Conversando","Seguimiento","Calificado","Llamada agendada","No show","Tuvo llamada, sin compra","Decisión (pensando)","Pago","Cliente","Descalificado (sin $)"];
 function stageFor(l){
   if (l.temperatura === "CLIENTE") return "Cliente";
   if (l.estado === "PAGO PENDIENTE" || l.estado === "CUOTA PENDIENTE") return "Pago";
+  if (l.estado === "NO CALIFICA POR PRESUPUESTO") return "Descalificado (sin $)";
   if (l.estado === "DECISIÓN PENDIENTE") return "Decisión (pensando)";
   if (l.estado === "TUVO LLAMADA SIN COMPRA" || l.estado === "LLAMADA REALIZADA") return "Tuvo llamada, sin compra";
   if (l.estado === "NO SHOW") return "No show";
@@ -1814,6 +2007,7 @@ const CALENDLY_TOOLS = {
   currentUser: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__users-get_current_user',
   listEvents: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__meetings-list_events',
   listInvitees: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__meetings-list_event_invitees',
+  orgMembers: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__organizations-list_organization_memberships',
 };
 async function callMcp(name, args){
   // Estos sync manuales (Calendly, Meta Ads) usan los conectores de Cowork,
@@ -1838,8 +2032,17 @@ document.getElementById('btnSyncCalendly').addEventListener('click', async () =>
   try {
     const me = await callMcp(CALENDLY_TOOLS.currentUser, {});
     const userUri = me && me.resource && me.resource.uri;
+    const orgUri = me && me.resource && me.resource.current_organization;
     if (!userUri) { alert('No pude leer tu cuenta de Calendly — revisa que siga conectada.'); return; }
-    const events = await callMcp(CALENDLY_TOOLS.listEvents, { user: userUri, count: 50, sort: 'start_time:desc' });
+    // Traemos TODA la organización de Calendly (Marie + Ileane), no solo la
+    // cuenta conectada — si filtráramos por un único usuario se perderían las
+    // llamadas agendadas directamente en el Calendly de la otra persona.
+    let membersByUri = {};
+    if (orgUri) {
+      const members = await callMcp(CALENDLY_TOOLS.orgMembers, { organization: orgUri });
+      ((members && members.collection) || []).forEach(m => { if (m.user) membersByUri[m.user.uri] = m.user; });
+    }
+    const events = await callMcp(CALENDLY_TOOLS.listEvents, orgUri ? { organization: orgUri, count: 50, sort: 'start_time:desc' } : { user: userUri, count: 50, sort: 'start_time:desc' });
     const list = (events && events.collection) || [];
     let creados = 0, llamadasNuevas = 0;
     for (const ev of list) {
@@ -1868,12 +2071,24 @@ document.getElementById('btnSyncCalendly').addEventListener('click', async () =>
       const estadoCall = ev.status === 'canceled' ? 'CANCELADA' : (new Date(ev.start_time) < new Date() ? 'LLAMADA REALIZADA' : 'LLAMADA AGENDADA');
       const existingCall = await sql(`select id from calls where lead_id='${esc(leadId)}' and fecha='${fechaISO}';`);
       if (!existingCall.length) {
-        // La llamada se agenda por defecto al closer (hoy Ileane); Caro sigue
-        // siendo la responsable del lead (ella confirma la asistencia).
-        const ileaneId = (USERS.find(u => u.nombre === 'Ileane') || {}).id;
-        await sql(`insert into calls (lead_id, fecha, hora, closer_id, estado) values ('${esc(leadId)}', '${fechaISO}', '${esc(horaTxt)}', ${ileaneId ? `'${esc(ileaneId)}'` : 'null'}, '${esc(estadoCall)}');`);
+        // Detectamos quién es la anfitriona real del evento (Marie o Ileane)
+        // por el organizer del evento en Calendly, en vez de asumir siempre
+        // Ileane — así las llamadas que agenda Marie quedan asignadas a ella.
+        const hostUri = ev.event_memberships && ev.event_memberships[0] && ev.event_memberships[0].user;
+        const hostInfo = hostUri ? membersByUri[hostUri] : null;
+        const hostEmail = ((hostInfo && hostInfo.email) || '').toLowerCase();
+        const hostName = (hostInfo && hostInfo.name) || '';
+        let closerUser = USERS.find(u => u.rol === 'closer'); // Ileane, por defecto
+        if (hostEmail.includes('toma@') || /marie/i.test(hostName)) {
+          closerUser = USERS.find(u => /marie/i.test(u.nombre||'')) || closerUser;
+        } else if (hostEmail.includes('ileane@') || /ileane/i.test(hostName)) {
+          closerUser = USERS.find(u => /ileane/i.test(u.nombre||'')) || closerUser;
+        }
+        const closerId = closerUser ? closerUser.id : null;
+        await sql(`insert into calls (lead_id, fecha, hora, closer_id, estado) values ('${esc(leadId)}', '${fechaISO}', '${esc(horaTxt)}', ${closerId ? `'${esc(closerId)}'` : 'null'}, '${esc(estadoCall)}');`);
         await sql(`update leads set estado='${esc(estadoCall)}', fecha_proxima_accion='${fechaISO}' where id='${esc(leadId)}' and estado not in ('CLIENTE');`);
         await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(leadId)}', 'Evento de Calendly: ${esc(ev.name||'reunión')} — ${fechaISO} ${esc(horaTxt)}', 'llamada');`);
+        await generarYGuardarBrief(leadId);
         llamadasNuevas++;
       }
     }
@@ -1936,6 +2151,7 @@ document.getElementById('btnSaveNewCall').addEventListener('click', async () => 
   await sql(`insert into calls (lead_id, fecha, hora, closer_id, estado) values ('${esc(leadId)}', '${esc(fecha)}', '${esc(hora)}', ${closerId?`'${esc(closerId)}'`:'null'}, 'LLAMADA AGENDADA');`);
   await sql(`update leads set estado='LLAMADA AGENDADA', fecha_proxima_accion='${esc(fecha)}', proxima_accion='Llamada agendada' where id='${esc(leadId)}';`);
   await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(leadId)}', 'Llamada agendada para ${esc(fecha)} ${esc(hora)}', 'llamada');`);
+  await generarYGuardarBrief(leadId);
   document.getElementById('newCallOverlay').classList.remove('open');
   await refreshAll();
 });
@@ -2079,7 +2295,17 @@ async function renderTracker(){
   const prevSet = leads.filter(l => l.fecha_creacion >= prevCutoffStart && l.fecha_creacion < prevCutoffEnd && (!trackerSource || l.origen === trackerSource || l.canal === trackerSource));
   const prevKpis = await computeTrackerKpis(prevSet, days, trackerSource);
 
-  document.getElementById('trackerKpis').innerHTML = KPI_DEFS.map(d => {
+  // Regla de Paula: los totales de ingresos, costos y porcentajes del Success
+  // Tracker solo los ven ella, Marie y Juan — a Caro e Ileane les genera
+  // envidia comparar números agregados que no controlan. Ellas sí ven las
+  // cifras propias por lead en Comisiones, pero acá no se les muestra nada
+  // sumado ni en $/%.
+  const KPI_SOLO_FULL = new Set(["adSpend","cpl","cpMqb","cpQbsu","cac","revenue","roas","roiRevenue","cashUpfront","pctCashUpfront","aovCash","totalCash","showRate","closeRate"]);
+  const trackerEsFull = currentUser && ['paula','marie','mentor'].includes(currentUser.rol);
+  const kpiDefsVisibles = trackerEsFull ? KPI_DEFS : KPI_DEFS.filter(d => !KPI_SOLO_FULL.has(d.key));
+  const trackerBanner = document.getElementById('trackerRestrictedNote');
+  if (trackerBanner) trackerBanner.style.display = trackerEsFull ? 'none' : 'block';
+  document.getElementById('trackerKpis').innerHTML = kpiDefsVisibles.map(d => {
     const val = kpis[d.key]; const prevVal = prevKpis[d.key];
     let cmpHtml = '';
     if (prevVal && prevVal > 0) {
