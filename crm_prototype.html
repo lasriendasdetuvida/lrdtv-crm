@@ -1472,7 +1472,7 @@ document.getElementById('modalDatosToggle').onclick = () => {
 // estado del lead y palabras clave de su último mensaje. Solo las ve
 // Paula/su equipo en el CRM, el lead nunca las ve.
 async function loadMensajesManychat(leadId){
-  return await sql(`select id, direccion, texto, estado_envio, enviado_por, created_at from manychat_messages where lead_id = '${esc(leadId)}' order by created_at asc, id asc;`);
+  return await sql(`select id, direccion, texto, estado_envio, enviado_por, flujo, created_at from manychat_messages where lead_id = '${esc(leadId)}' order by created_at asc, id asc;`);
 }
 // Etiqueta discreta de quién mandó cada mensaje saliente. Si el mensaje tiene
 // enviado_por (un usuario real del equipo lo mandó desde el CRM), mostramos su
@@ -1656,7 +1656,7 @@ async function renderConversacion(leadId){
       ${msgs.length ? msgs.map(m => {
         const et = etiquetaRemitente(m);
         return `<div class="chat-msg-wrap ${m.direccion}">
-          ${et.texto ? `<div class="sender-label ${et.cls}">${et.texto}</div>` : ''}
+          ${et.texto ? `<div class="sender-label ${et.cls}" ${m.flujo ? `title="Flujo: ${esc(m.flujo)}"` : ''}>${et.texto}</div>` : ''}
           <div class="chat-msg ${m.direccion} ${et.cls==='is-auto' && m.direccion==='saliente' ? 'is-auto' : ''}">
             <div>${esc(m.texto)}</div>
             <div class="chat-meta">${fmt(new Date(m.created_at))}${m.direccion==='saliente' && m.estado_envio==='error' ? ' · ⚠️ no se pudo enviar' : ''}</div>
