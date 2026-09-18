@@ -862,6 +862,14 @@ document.querySelectorAll('.nav-item').forEach(item => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + item.dataset.view).classList.add('active');
     document.getElementById('viewTitle').textContent = item.textContent.trim().replace(/^\S+\s/, '');
+    // Los gráficos de Chart.js (Orígenes) se armaban mientras la pestaña
+    // estaba oculta (display:none) — con eso Chart.js mide el canvas en
+    // 0x0 y el gráfico queda en blanco hasta que algo lo redibuja. Por eso
+    // "la vista semanal no funcionaba": no era un bug del filtro, era que
+    // el gráfico nunca se había dibujado bien la primera vez. Ahora se
+    // vuelve a dibujar cada vez que se entra a la pestaña, ya con el
+    // tamaño real del canvas visible.
+    if (item.dataset.view === 'origenes' && typeof renderOrigins === 'function' && leads.length) renderOrigins();
   });
 });
 window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${view}"]`).click(); };
@@ -1901,6 +1909,27 @@ let funnelChartInstance = null;
 let leadsDiaChartInstance = null;
 let leadsDiaMode = 'semana';
 let leadsDiaAnchor = new Date();
+// Plugin chiquito de Chart.js (sin librería externa) para escribir el
+// número exacto arriba de cada barra — pedido de Paula (18-09): que el
+// número de cada día se vea a simple vista, sin tener que leer la altura
+// contra el eje.
+const leadsDiaValueLabels = {
+  id: 'leadsDiaValueLabels',
+  afterDatasetsDraw(chart){
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.fillStyle = '#5B3A29';
+    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    meta.data.forEach((bar, i) => {
+      const value = chart.data.datasets[0].data[i];
+      if (!value) return;
+      ctx.fillText(String(value), bar.x, bar.y - 6);
+    });
+    ctx.restore();
+  }
+};
 function renderLeadsPorDia(){
   const canvas = document.getElementById('leadsDiaChart');
   if (!canvas) return;
@@ -1922,11 +1951,15 @@ function renderLeadsPorDia(){
   const counts = days.map(d => leads.filter(l => l.fecha_creacion && sameDay(l.fecha_creacion, d)).length);
 
   if (leadsDiaChartInstance) leadsDiaChartInstance.destroy();
+  const maxCount = Math.max(1, ...counts);
   leadsDiaChartInstance = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets: [{ label: 'Leads', data: counts, backgroundColor: '#8A6E5A' }] },
+    plugins: [leadsDiaValueLabels],
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      // suggestedMax deja un margen arriba de la barra más alta para que el
+      // número no quede pegado (o cortado) contra el borde del gráfico.
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 }, suggestedMax: Math.ceil(maxCount * 1.2) } } }
   });
 }
 document.getElementById('leadsDiaModeSemana').addEventListener('click', () => { leadsDiaMode='semana'; renderLeadsPorDia(); });
