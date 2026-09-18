@@ -304,6 +304,10 @@
   }
   .login-box .err { color: #C0392B; font-size: 12px; margin-top: 8px; display: none; }
   .user-badge { margin-top: auto; padding-top: 16px; border-top: 1px solid #6F4B37; font-size: 11px; color: #D8C8BC; }
+  .realtime-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: #8A6E5A; margin-left: 10px; cursor: default; }
+  .realtime-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #C7B9AC; display: inline-block; transition: background .2s; }
+  .realtime-badge.live .dot { background: #2E9E4F; box-shadow: 0 0 0 2px rgba(46,158,79,.18); }
+  .realtime-badge.down .dot { background: #C0392B; }
   .user-badge b { color: #F3E9DE; display: block; font-size: 12px; }
   .user-badge a { color: #D8C8BC; cursor: pointer; text-decoration: underline; }
 </style>
@@ -343,7 +347,10 @@
   <div class="main">
     <div class="topbar">
       <h2 id="viewTitle">Hoy</h2>
-      <div class="date" id="todayDate"></div>
+      <div style="display:flex;align-items:center">
+        <div class="date" id="todayDate"></div>
+        <span class="realtime-badge" id="realtimeIndicator" title="Conexión en tiempo real con la base de datos"><span class="dot"></span><span class="txt">conectando…</span></span>
+      </div>
     </div>
     <div class="demo-banner">
       🟢 Conectado a la base de datos real (Supabase). ManyChat (Instagram + WhatsApp), Calendly, PayPal y Meta Ads ya están en vivo. Hotmart está construido pero falta activar la URL del webhook en Hotmart.
@@ -2505,6 +2512,7 @@ function enterApp(){
   const navDesc = document.getElementById('navDesconexion');
   if (navDesc) navDesc.style.display = (currentUser && currentUser.rol === 'paula') ? '' : 'none';
   init();
+  iniciarRealtime();
 }
 window.logout = async function(){
   await sb.auth.signOut();
@@ -2514,6 +2522,51 @@ window.logout = async function(){
 async function resolveCurrentUser(email){
   const rows = await sql(`select id, nombre, rol from users where lower(email) = lower('${esc(email)}') limit 1;`);
   return rows[0] || null;
+}
+
+// ---------- REALTIME (Supabase Realtime sobre Postgres) ----------
+// Suscripción en vivo a manychat_messages y leads: cuando llega un mensaje
+// nuevo (entrante del lead o saliente de una automatización/agente) o un
+// lead cambia de estado, el CRM se actualiza solo, sin que nadie tenga que
+// apretar F5. Esto corre encima de la tabla real (no es polling) porque las
+// dos tablas ya quedaron agregadas a la publicación "supabase_realtime" en
+// la base. Si el navegador pierde la conexión, el indicador de arriba pasa
+// a rojo para que quede claro que lo que se ve puede estar desactualizado.
+let realtimeChannel = null;
+function setRealtimeStatus(estado){
+  const el = document.getElementById('realtimeIndicator');
+  if (!el) return;
+  el.classList.remove('live', 'down');
+  const txt = el.querySelector('.txt');
+  if (estado === 'live') { el.classList.add('live'); if (txt) txt.textContent = 'en vivo'; }
+  else if (estado === 'down') { el.classList.add('down'); if (txt) txt.textContent = 'sin conexión en vivo — actualiza la página'; }
+  else { if (txt) txt.textContent = 'conectando…'; }
+}
+// Refresco liviano: NO recalcula el Success Tracker completo (es pesado y no
+// depende de mensajes en vivo) — solo lo que un mensaje/estado nuevo puede
+// cambiar: leads, badges de conversaciones, prioridad, pipeline, y el chat
+// abierto si corresponde.
+async function refreshLive(leadIdAfectado){
+  await Promise.all([loadLeads(), loadConversaciones()]);
+  renderPriority(); applyFilters(); renderPipeline(); applyConvoFilters(); renderEstadoBanner();
+  if (currentModalId && (!leadIdAfectado || leadIdAfectado === currentModalId)) {
+    await renderConversacion(currentModalId);
+  }
+}
+function iniciarRealtime(){
+  if (realtimeChannel) return; // evita suscribirse dos veces si enterApp corre más de una vez
+  setRealtimeStatus('connecting');
+  realtimeChannel = sb.channel('crm-live-updates')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'manychat_messages' }, (payload) => {
+      refreshLive(payload.new && payload.new.lead_id);
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, (payload) => {
+      refreshLive(payload.new && payload.new.id);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') setRealtimeStatus('live');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRealtimeStatus('down');
+    });
 }
 
 async function boot(){
