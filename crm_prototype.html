@@ -816,8 +816,11 @@ function estadoNegocioSets(){
     incidenciasAbiertas: pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'incidencia'),
     pagosVencidos: payments.filter(p => p.estado === 'Atrasada'),
     pagosPorVencerPronto: payments.filter(p => p.estado === 'Por vencer' && p.vence && p.vence <= en2dias),
-    hotSinResponder: leads.filter(l => l.temperatura === 'HOT' && l.estado === 'MENSAJE DEL LEAD SIN RESPONDER'),
-    altoValorSinResponsable: leads.filter(l => ['HOT','CLIENTE'].includes(l.temperatura) && !l.responsable_id),
+    // Un lead marcado PERDIDO ya está cerrado — nunca debería bloquear el
+    // semáforo ni el panel de desconexión, sin importar qué temperatura o
+    // responsable haya quedado guardado de cuando estaba activo.
+    hotSinResponder: leads.filter(l => l.temperatura === 'HOT' && l.estado === 'MENSAJE DEL LEAD SIN RESPONDER' && l.estado !== 'PERDIDO'),
+    altoValorSinResponsable: leads.filter(l => ['HOT','CLIENTE'].includes(l.temperatura) && !l.responsable_id && l.estado !== 'PERDIDO'),
     integracionesEnError: integrationLogs.filter(i => i.estado === 'error'),
     seguimientosAtrasados: leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO'),
   };
@@ -896,9 +899,11 @@ window.openEstadoRazonDrill = function(key){
 
 // ---------- PANEL "ME PUEDO DESCONECTAR" (Parte 22) ----------
 function desconexionSets(){
-  const sinResponsable = leads.filter(l => !l.responsable_id && l.temperatura !== 'CLIENTE');
+  // Un lead PERDIDO ya se cerró — no cuenta como pendiente en ninguna de estas
+  // categorías, aunque haya quedado sin responsable o sin próxima acción.
+  const sinResponsable = leads.filter(l => !l.responsable_id && l.temperatura !== 'CLIENTE' && l.estado !== 'PERDIDO');
   const seguimientosVencidos = leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO');
-  const calientesSinAccion = leads.filter(l => l.temperatura === 'HOT' && !l.fecha_proxima_accion);
+  const calientesSinAccion = leads.filter(l => l.temperatura === 'HOT' && !l.fecha_proxima_accion && l.estado !== 'PERDIDO');
   const manana = new Date(Date.now() + 86400000);
   const llamadas24h = calls.filter(c => c.estado === 'LLAMADA AGENDADA' && (sameDay(c.fecha, new Date()) || sameDay(c.fecha, manana))).map(c => {
     const l = leads.find(x => x.id === c.lead_id) || {};
@@ -1195,6 +1200,7 @@ window.openModal = async function(id){
     <div style="grid-column:1/-1"><div class="fi-label">Motivo / origen</div><div style="font-size:12px;color:#3A2E28">${l.origen||'—'} · ${l.motivo||'sin motivo registrado'} · hijo/a: ${l.edad_hijo||'—'}</div></div>
     <div class="save-row" style="grid-column:1/-1">
       <button class="btn-primary" onclick="saveLead()">Guardar cambios</button>
+      ${l.estado === 'PERDIDO' ? `<button class="btn-ghost" onclick="recontactarLead()">↩️ Recontactar (asignar a Caro)</button>` : ''}
     </div>
     <div style="grid-column:1/-1;margin-top:10px">
       <div class="fi-label">Agregar nota al historial</div>
@@ -1272,6 +1278,19 @@ window.saveLead = async function(){
       on conflict (lead_id) do nothing;`);
     await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', 'Compró ${esc(document.getElementById('mfProducto').selectedOptions[0].text)} — se creó venta y ficha de post-venta', 'venta');`);
   }
+  document.getElementById('modalOverlay').classList.remove('open');
+  await refreshAll();
+};
+
+// Reabre un lead marcado PERDIDO para recontactarlo: vuelve a "sin contactar"
+// y se lo asigna a Caro (regla de negocio de Paula), dejando registro de que
+// fue una reactivación manual, no un lead nuevo.
+window.recontactarLead = async function(){
+  const id = currentModalId;
+  const caroId = (USERS.find(u => u.nombre === 'Caro Pache') || {}).id;
+  await sql(`update leads set estado='NUEVO - SIN CONTACTAR', responsable_id=${caroId ? `'${esc(caroId)}'` : 'null'},
+    proxima_accion='Recontactar', ultima_interaccion=now(), updated_at=now() where id='${esc(id)}';`);
+  await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', 'Reactivado para recontactar${currentUser ? ' por ' + esc(currentUser.nombre) : ''}, asignado a Caro', 'estado_cambio');`);
   document.getElementById('modalOverlay').classList.remove('open');
   await refreshAll();
 };
