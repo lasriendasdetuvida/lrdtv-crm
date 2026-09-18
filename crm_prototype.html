@@ -63,7 +63,7 @@
   }
   .btn-wpp:hover { background: #276b2b; }
 
-  .chat-box { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #FBF6F0; border-radius: 8px; border: 1px solid #EADFD3; margin-top: 8px; }
+  .chat-box { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #FBF6F0; border-radius: 8px; border: 1px solid #EADFD3; margin-top: 4px; }
   .chat-msg { max-width: 78%; padding: 7px 10px; border-radius: 10px; font-size: 12.5px; }
   .chat-msg.entrante { align-self: flex-start; background: #EFE6DC; color: #3A2E28; }
   .chat-msg.saliente { align-self: flex-end; background: #5B3A29; color: #F3E9DE; }
@@ -517,11 +517,14 @@
     <span class="close-x" id="closeModal">✕</span>
     <h3 id="modalName"></h3>
     <div class="sub" id="modalSub"></div>
-    <div class="field-grid" id="modalFields"></div>
-    <div id="modalExtra"></div>
     <div id="modalConversacion"></div>
-    <div class="section-title" style="margin-top:0">Historial</div>
-    <div class="timeline" id="modalTimeline"></div>
+    <div class="section-title" style="margin-top:14px;cursor:pointer" id="modalDatosToggle">📋 Datos del lead <span id="modalDatosArrow">▸</span></div>
+    <div id="modalDatosBody" style="display:none">
+      <div class="field-grid" id="modalFields"></div>
+      <div id="modalExtra"></div>
+      <div class="section-title" style="margin-top:0">Historial</div>
+      <div class="timeline" id="modalTimeline"></div>
+    </div>
   </div>
 </div>
 
@@ -652,7 +655,7 @@ async function loadLeads(){
   const rows = await sql(`
     select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.canal, l.campana, l.edad_hijo, l.motivo,
       l.estado, l.temperatura, l.responsable_id, u.nombre as responsable, l.producto_id, p.nombre as producto,
-      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion, l.manychat_id
+      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion, l.manychat_id, l.entrada_manychat
     from leads l
     left join users u on u.id = l.responsable_id
     left join products p on p.id = l.producto_id
@@ -673,7 +676,7 @@ async function loadLeads(){
 // responder.
 async function loadConversaciones(){
   const rows = await sql(`
-    select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.temperatura, l.estado, l.manychat_id,
+    select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.temperatura, l.estado, l.manychat_id, l.entrada_manychat,
       lm.texto as ultimo_texto, lm.direccion as ultima_direccion, lm.created_at as ultimo_msg_at
     from leads l
     left join lateral (
@@ -1209,7 +1212,7 @@ function renderConvoList(list){
     const sinResponder = c.ultima_direccion === 'entrante';
     const canal = c.instagram && !c.telefono ? 'INSTAGRAM' : (c.telefono ? 'WHATSAPP' : (c.origen || '—'));
     const inicial = (c.nombre || '?').trim().charAt(0).toUpperCase();
-    const preview = c.ultimo_texto ? c.ultimo_texto : 'Llegó sin escribir texto (comentario/clic)';
+    const preview = c.ultimo_texto ? c.ultimo_texto : (c.entrada_manychat || 'Llegó sin escribir texto (comentario/clic)');
     return `<div class="convo-item ${sinResponder ? 'unread' : ''}" onclick="openModal('${c.id}')">
       <div class="convo-avatar">${inicial}</div>
       <div class="convo-main">
@@ -1295,6 +1298,8 @@ window.openModal = async function(id){
   if (!l) return;
   document.getElementById('modalName').textContent = l.nombre;
   document.getElementById('modalSub').textContent = `${l.telefono||'sin teléfono'} · ${l.instagram||'sin instagram'} · Creado ${fmtDateOnly(l.fecha_creacion)}`;
+  document.getElementById('modalDatosBody').style.display = 'none';
+  document.getElementById('modalDatosArrow').textContent = '▸';
   document.getElementById('modalFields').innerHTML = `
     <div style="grid-column:1/-1" class="fi-label">Estado</div>
     <select id="mfEstado" class="fi" style="grid-column:1/-1">${ESTADOS.map(e => `<option ${e===l.estado?'selected':''}>${e}</option>`).join('')}</select>
@@ -1352,6 +1357,16 @@ window.openModal = async function(id){
 };
 document.getElementById('closeModal').onclick = () => document.getElementById('modalOverlay').classList.remove('open');
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') e.currentTarget.classList.remove('open'); });
+// El modal abre siempre mostrando primero el chat (como WhatsApp) — los datos
+// del lead (estado, temperatura, etc.) quedan plegados debajo, y se despliegan
+// solo si hace falta editarlos.
+document.getElementById('modalDatosToggle').onclick = () => {
+  const body = document.getElementById('modalDatosBody');
+  const arrow = document.getElementById('modalDatosArrow');
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  arrow.textContent = abierto ? '▸' : '▾';
+};
 
 // ---------- CONVERSACIÓN MANYCHAT (chat integrado) + SUGERENCIAS ----------
 // Las sugerencias no son texto inventado por IA — son mensajes literales listos
@@ -1444,9 +1459,8 @@ async function renderConversacion(leadId){
   const ultimoEntrante = [...msgs].reverse().find(m => m.direccion === 'entrante');
   const sugerencias = sugerenciasParaLead(l, ultimoEntrante ? ultimoEntrante.texto : '');
   box.innerHTML = `
-    <div class="section-title" style="margin-top:14px">Conversación (ManyChat)</div>
     <div class="chat-box" id="chatBox">
-      ${msgs.length ? msgs.map(m => `<div class="chat-msg ${m.direccion}"><div>${m.texto}</div><div class="chat-meta">${fmt(new Date(m.created_at))}${m.direccion==='saliente' && m.estado_envio==='error' ? ' · ⚠️ no se pudo enviar' : ''}</div></div>`).join('') : '<div class="loading-note">Llegó por ManyChat sin escribir texto (entró por comentario o clic en un botón), todavía no hay un mensaje propio de este lead.</div>'}
+      ${msgs.length ? msgs.map(m => `<div class="chat-msg ${m.direccion}"><div>${m.texto}</div><div class="chat-meta">${fmt(new Date(m.created_at))}${m.direccion==='saliente' && m.estado_envio==='error' ? ' · ⚠️ no se pudo enviar' : ''}</div></div>`).join('') : `<div class="loading-note">${l.entrada_manychat ? esc(l.entrada_manychat) + ' — todavía no escribió un mensaje propio.' : 'Llegó por ManyChat sin escribir texto, todavía no hay un mensaje propio de este lead.'}</div>`}
     </div>
     <div class="chat-input-row">
       <input id="mcMensajeInput" class="fi" placeholder="Escribir mensaje…" style="flex:1" />
