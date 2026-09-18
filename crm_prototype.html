@@ -1256,27 +1256,84 @@ document.getElementById('closeModal').onclick = () => document.getElementById('m
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') e.currentTarget.classList.remove('open'); });
 
 // ---------- CONVERSACIÓN MANYCHAT (chat integrado) + SUGERENCIAS ----------
-// Las sugerencias no son texto inventado por IA — son la metodología real de
-// setter de Paula (skill setter-lrdtv), aplicada según el estado del lead y
-// palabras clave de su último mensaje. Solo las ve Paula/su equipo en el CRM,
-// el lead nunca las ve.
+// Las sugerencias no son texto inventado por IA — son mensajes literales listos
+// para copiar y pegar, sacados del guion real de ventas de Paula (skills
+// setter-lrdtv y coaching-ventas-lrdtv: banco de frases de Marie, matriz de
+// objeciones, aperturas por recurso gratuito), aplicados según el origen, el
+// estado del lead y palabras clave de su último mensaje. Solo las ve
+// Paula/su equipo en el CRM, el lead nunca las ve.
 async function loadMensajesManychat(leadId){
   return await sql(`select id, direccion, texto, estado_envio, created_at from manychat_messages where lead_id = '${esc(leadId)}' order by created_at asc;`);
 }
 function sugerenciasParaLead(l, ultimoEntrante){
   const t = (ultimoEntrante||'').toLowerCase();
+  const nombre = (l.nombre || '').split(' ')[0] || 'Hola';
   const out = [];
-  if (/pensar/.test(t)) out.push({tit:"Objeción: “lo tengo que pensar”", txt:"Casi nunca es solo precio — suele ser falta de claridad de cómo se aplica a su caso. Ofrécele que la llamada/sesión es justo para verlo aplicado a su situación puntual, y cierra proponiendo un horario concreto (nunca lo dejes abierto)."});
-  if (/pareja|marido|esposo|esposa/.test(t)) out.push({tit:"Objeción: hablarlo con su pareja", txt:"No la descalifiques, es válido. Ayúdala a que esa conversación sea más fácil porque ya tiene un plan concreto en la mano, y proponle seguir esta misma semana."});
-  if (/no s[eé] si (esto|es para m|mi caso)/.test(t)) out.push({tit:"Duda de encaje", txt:"Sé honesta si el programa aplica a su situación puntual (edad del hijo/a, tipo de problema). Si sí calza, menciona un caso similar. Nunca vendas algo que no corresponde."});
-  if (/no tengo tiempo/.test(t)) out.push({tit:"Objeción de tiempo", txt:"Pregúntale cuánto tiempo tiene disponible realista, y ofrécele el fin de semana como opción."});
-  if (/cuesta|precio|vale\??$/.test(t)) out.push({tit:"Antes de hablar de precio", txt:"Pregunta primero qué es lo que más le gustaría lograr — eso da contexto antes de hablar del monto. Nunca preguntes directo cuánto puede pagar."});
-  if (l.estado === 'NO SHOW') out.push({tit:"No-show — contactar ya", txt:`“${l.nombre}, vi que no llegaste a tu sesión, ¿pasó algo? Cuéntame.”`});
-  if (l.estado === 'SEGUIMIENTO ATRASADO' || (l.ultima_interaccion && (new Date() - l.ultima_interaccion) > 7*86400000)) out.push({tit:"Reactivación (7-30 días sin hablar)", txt:`“Hola ${l.nombre}, tiempo sin hablar, ¿cómo va todo?” — ligero, sin presión.`});
-  if (l.estado === 'MENSAJE DEL LEAD SIN RESPONDER') out.push({tit:"Responder ahora", txt:"La conversión es más alta justo después de que escribe. Refleja su forma de hablar y cierra siempre con una dirección clara: una pregunta, un reencuadre o una propuesta concreta."});
-  if (l.estado === 'NUEVO - SIN CONTACTAR') out.push({tit:"Primer contacto (frío)", txt:"Abre una conversación genuina, sin apurar a agendar. Ten paciencia, puede tomar varios días. Si da respuestas cortas o de compromiso, da un paso atrás en vez de insistir."});
-  if (l.temperatura === 'HOT' && !out.length) out.push({tit:"Ya muestra intención clara", txt:"Agenda rápido. Nunca preguntes “¿te gustaría agendar?” — propone con firmeza dos horarios concretos: “¿te queda mejor mañana o pasado?”"});
-  if (!out.length) out.push({tit:"Regla general", txt:"Un mensaje = una idea. Repite/recoge lo que ya te contó antes de seguir preguntando, y nunca termines sin una dirección clara."});
+  const add = (tit, msg) => out.push({ tit, msg });
+
+  // Objeciones (matriz real, siempre aislar antes de resolver, nunca dar precio en chat)
+  if (/pensar/.test(t)) add(
+    'Objeción: "lo tengo que pensar"',
+    `Entiendo que quieras pensarlo. Qué es puntualmente lo que quieres pensar, el tiempo, la inversión, o si te va a funcionar a ti? Así te ayudo mejor.`
+  );
+  if (/pareja|marido|esposo|esposa/.test(t)) add(
+    'Objeción: hablarlo con su pareja',
+    `Super válido. Esa decisión la tomas tú o es de los dos? Si es de los dos, puede sumarse él también a la sesión, así la ven juntos.`
+  );
+  if (/no s[eé] si (esto|es para m|mi caso)/.test(t)) add(
+    'Duda de si le sirve',
+    `Te entiendo. Cuéntame un poco más de tu caso puntual para decirte con honestidad si esto es para ti: qué edad tiene tu hijo/a y qué es lo que más se te está haciendo difícil hoy?`
+  );
+  if (/no tengo tiempo/.test(t)) add(
+    'Objeción de tiempo',
+    `Está armado en sesiones cortas, no en horas largas. Cuánto tiempo real tienes disponible a la semana? Así te propongo un horario que calce.`
+  );
+  if (/cuesta|precio|vale\??$/.test(t)) add(
+    'Pregunta por precio — nunca se da en el chat',
+    `Entiendo que quieras tener una idea, pero varía según cómo se pueda trabajar tu caso, por eso prefiero que lo veamos bien en la sesión y ahí te doy el número exacto, sin vueltas. Te queda mejor mañana o pasado para agendarla?`
+  );
+  if (/estaf|desconf/.test(t)) add(
+    'Objeción: "esto es una estafa"',
+    `Te entiendo, con tanta oferta dando vueltas hace bien desconfiar. Soy Marie, doctora en Neurociencia y Salud Mental, y justo por eso la primera sesión es sin costo, para que lo veas tú misma antes de decidir cualquier cosa.`
+  );
+
+  // Aperturas por recurso gratuito (copy fijo, solo la primera vez que se le escribe)
+  if (l.estado === 'NUEVO - SIN CONTACTAR' && l.origen === 'NEUROTIPS') add(
+    'Apertura — pidió Neurotips',
+    `Hola! Qué bueno que quieras tus Neurotips. Cuéntame, qué edad tiene tu hijo/a para agregarte al grupo indicado?`
+  );
+  if (l.estado === 'NUEVO - SIN CONTACTAR' && l.origen === 'AUDIO') add(
+    'Apertura — pidió el audio de regulación',
+    `Hola! Qué bueno que quieras tu audio de regulación. Cuéntame, qué edad tiene tu hijo/a para mandarte el audio indicado?`
+  );
+
+  // No-show / reactivación / mensaje sin responder
+  if (l.estado === 'NO SHOW') add(
+    'No-show — contactar ya',
+    `${nombre}, vi que no llegaste a tu sesión, pasó algo? Cuéntame.`
+  );
+  if (l.estado === 'SEGUIMIENTO ATRASADO' || (l.ultima_interaccion && (new Date() - new Date(l.ultima_interaccion)) > 7*86400000)) add(
+    'Reactivación (varios días sin hablar)',
+    `Hola ${nombre}, tiempo sin hablar, cómo va todo?`
+  );
+  if (l.estado === 'MENSAJE DEL LEAD SIN RESPONDER' && !out.length) add(
+    'Responder ahora',
+    `Hola ${nombre}, [recoge acá lo último que te contó, con empatía real, antes de seguir preguntando]. Qué es lo que más te gustaría que cambiara con tu hijo/a de aquí en adelante?`
+  );
+
+  // Primer contacto genérico (sin recurso específico) y HOT sin otra coincidencia
+  if (l.estado === 'NUEVO - SIN CONTACTAR' && !out.length) add(
+    'Primer contacto (frío)',
+    `Hola ${nombre}, cómo estás? Cuéntame, qué edad tiene tu hijo/a?`
+  );
+  if (l.temperatura === 'HOT' && !out.length) add(
+    'Ya muestra intención clara — agendar rápido',
+    `Qué bueno que quieras dar el paso. Te queda mejor mañana o pasado para una sesión de diagnóstico y ver tu caso puntual?`
+  );
+  if (!out.length) add(
+    'Regla general — abrir conversación',
+    `Hola ${nombre}, cómo estás? Cuéntame, qué es lo que más se te está haciendo difícil hoy con tu hijo/a?`
+  );
   return out.slice(0,3);
 }
 async function renderConversacion(leadId){
@@ -1297,12 +1354,20 @@ async function renderConversacion(leadId){
       <button class="btn-primary" onclick="enviarMensajeManychat()">Enviar</button>
     </div>
     <div class="suggest-box">
-      <div class="lbl">Sugerido para responder (solo lo ves tú)</div>
-      ${sugerencias.map(s => `<div class="suggest-item"><b>${s.tit}:</b> ${s.txt}</div>`).join('')}
+      <div class="lbl">Sugerido para responder (solo lo ves tú) — clic para usarlo</div>
+      ${sugerencias.map((s,i) => `<div class="suggest-item" onclick="usarSugerencia(${i})"><b>${s.tit}</b><div style="margin-top:3px">${s.msg}</div></div>`).join('')}
     </div>
   `;
+  window.__sugerenciasActuales = sugerencias;
   const cb = document.getElementById('chatBox'); if (cb) cb.scrollTop = cb.scrollHeight;
 }
+window.usarSugerencia = function(i){
+  const input = document.getElementById('mcMensajeInput');
+  const s = (window.__sugerenciasActuales || [])[i];
+  if (!input || !s) return;
+  input.value = s.msg;
+  input.focus();
+};
 window.enviarMensajeManychat = async function(){
   const id = currentModalId;
   const input = document.getElementById('mcMensajeInput');
