@@ -1668,6 +1668,9 @@ async function renderConversacion(leadId){
       <input id="mcMensajeInput" class="fi" placeholder="Escribir mensaje…" style="flex:1" />
       <button class="btn-primary" onclick="enviarMensajeManychat()">Enviar</button>
     </div>
+    <div style="margin-top:4px">
+      <a href="#" onclick="marcarRespondidoManual();return false;" style="font-size:10.5px;color:#8A6E5A;text-decoration:underline">¿Le respondiste directo por WhatsApp? Marcar como respondido</a>
+    </div>
     <div class="suggest-box">
       <div class="lbl">Sugerido para responder (solo lo ves tú)</div>
       ${sugerencias.map((s,i) => `<div class="suggest-item">
@@ -1719,6 +1722,28 @@ window.enviarMensajeManychat = async function(){
     }
     await refreshAll();
   }
+  await renderConversacion(id);
+};
+// Si alguien le contesta al lead directo desde la app de WhatsApp (no desde
+// esta caja), el CRM NO se entera solo: ManyChat solo nos avisa cuando el
+// LEAD escribe (no tiene un "trigger" para mensajes que manda un humano del
+// equipo), así que no hay forma de sincronizarlo en automático sin que
+// alguien lo marque. Este botón es ese marcado manual — deja una nota en el
+// historial (con lo que se le contestó, si se quiere escribir) y mueve el
+// estado igual que si se hubiera mandado desde acá.
+window.marcarRespondidoManual = async function(){
+  const id = currentModalId;
+  if (!id) return;
+  const texto = (prompt('¿Qué le contestaste por WhatsApp? (queda en el historial del chat — déjalo vacío si prefieres no escribirlo)') || '').trim();
+  const notaTexto = texto || '[Respondida directo por WhatsApp/ManyChat, fuera del CRM — sin texto registrado]';
+  await sql(`insert into manychat_messages (lead_id, direccion, texto, estado_envio, enviado_por) values ('${esc(id)}', 'saliente', '${esc(notaTexto)}', 'enviado', ${currentUser ? `'${esc(currentUser.id)}'` : 'null'});`);
+  const l = clients.find(x => x.id === id) || leads.find(x => x.id === id);
+  if (l && ESTADOS_PENDIENTES_RESPUESTA.includes(l.estado)) {
+    await sql(`update leads set estado='ESPERANDO RESPUESTA DEL LEAD', ultima_interaccion=now() where id='${esc(id)}';`);
+  } else {
+    await sql(`update leads set ultima_interaccion=now() where id='${esc(id)}';`);
+  }
+  await refreshAll();
   await renderConversacion(id);
 };
 
