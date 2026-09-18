@@ -304,6 +304,7 @@
     <div class="nav-item" data-view="pagos">💳 Pagos</div>
     <div class="nav-item" data-view="postventa">🌱 Post-venta</div>
     <div class="nav-item" data-view="tracker">📈 Success Tracker</div>
+    <div class="nav-item" data-view="comisiones">💰 Comisiones</div>
     <div class="user-badge" id="userBadge"></div>
   </div>
 
@@ -497,6 +498,12 @@
       <div class="section-title">Calidad de datos y sincronización</div>
       <div class="dq-grid" id="dqGrid"></div>
     </div>
+
+    <!-- COMISIONES -->
+    <div class="view" id="view-comisiones">
+      <div class="demo-banner" id="comisionesBanner"></div>
+      <div id="comisionesBody"></div>
+    </div>
   </div>
 </div>
 
@@ -602,7 +609,7 @@ const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR",
 const CANALES = ["DM_ADS","VSL_ADS","ORGANICO"];
 const ESTADOS = ["NUEVO - SIN CONTACTAR","CONTACTADO","ESPERANDO RESPUESTA DEL LEAD","MENSAJE DEL LEAD SIN RESPONDER",
   "CONVERSACIÓN ACTIVA","TOCA SEGUIMIENTO","SEGUIMIENTO ATRASADO","LLAMADA POR AGENDAR","LLAMADA AGENDADA",
-  "LLAMADA REALIZADA","TUVO LLAMADA SIN COMPRA","NO SHOW","DECISIÓN PENDIENTE","PAGO PENDIENTE","CUOTA PENDIENTE","CLIENTE","NO AHORA","PERDIDO"];
+  "LLAMADA REALIZADA","TUVO LLAMADA SIN COMPRA","NO SHOW","DECISIÓN PENDIENTE","PAGO PENDIENTE","CUOTA PENDIENTE","CLIENTE","NO AHORA","NO CALIFICA POR PRESUPUESTO","PERDIDO"];
 const SUCCESS_ESTADOS = ["NUEVO CLIENTE","ONBOARDING PENDIENTE","ONBOARDING REALIZADO","INICIÓ PROGRAMA","ACTIVO","AVANZANDO",
   "BAJA PARTICIPACIÓN","SIN ACTIVIDAD","NECESITA CONTACTO","EN RIESGO","RECUPERADO","CERCA DE FINALIZAR","FINALIZADO",
   "RENOVACIÓN","UPSELL / SIGUIENTE PASO","PAUSADO","BAJA / CANCELACIÓN"];
@@ -691,13 +698,15 @@ async function loadConversaciones(){
 
 async function loadCalls(){
   const rows = await sql(`
-    select c.id, c.lead_id, l.nombre as lead_nombre, c.fecha, c.hora, c.closer_id, u.nombre as closer, c.estado, c.resultado
+    select c.id, c.lead_id, l.nombre as lead_nombre, c.fecha, c.hora, c.closer_id, u.nombre as closer, c.estado, c.resultado,
+      c.setter_id, us.nombre as setter, c.monto_cerrado
     from calls c
     join leads l on l.id = c.lead_id
     left join users u on u.id = c.closer_id
+    left join users us on us.id = c.setter_id
     order by c.fecha, c.hora;
   `);
-  calls = rows.map(c => ({ ...c, fecha: c.fecha ? new Date(c.fecha + 'T00:00:00') : null, lead: c.lead_nombre }));
+  calls = rows.map(c => ({ ...c, fecha: c.fecha ? new Date(c.fecha + 'T00:00:00') : null, lead: c.lead_nombre, monto_cerrado: toNum(c.monto_cerrado) }));
 }
 
 async function loadPayments(){
@@ -1665,6 +1674,84 @@ window.updateCall = async function(id, field, value){
 };
 document.getElementById('btnNewCall').addEventListener('click', () => { populateLeadPicker(); document.getElementById('newCallOverlay').classList.add('open'); });
 
+// ---------- COMISIONES ----------
+// Caro (setter) anota que llamadas agendó y si cerraron; Ileane (closer) anota
+// las que ella cerró. Cada una autorreporta resultado + monto de su propia
+// llamada — esa es la fuente de verdad para el pago de fin de mes, no se
+// calcula de otra tabla. Reglas de negocio de Paula (18-09-2026):
+//   - Caro gana 5% del monto cerrado en toda llamada que ELLA agendó y que
+//     terminó cerrada (sin importar quién la cerró).
+//   - Ileane gana 10% del monto cerrado en toda llamada que ELLA cerró.
+// Nadie ve el total de la otra persona — Caro no ve el de Ileane ni viceversa.
+// Solo Paula, Marie y Juan ven ambos lados y el total combinado.
+const COMISION_SETTER_PCT = 5;
+const COMISION_CLOSER_PCT = 10;
+
+window.updateCallComision = async function(id, field, value){
+  if (field === 'monto_cerrado') {
+    const n = value === '' ? null : toNum(value);
+    await sql(`update calls set monto_cerrado = ${n === null ? 'null' : n} where id='${esc(id)}';`);
+  } else {
+    await sql(`update calls set ${field}='${esc(value)}' where id='${esc(id)}';`);
+  }
+  await loadCalls();
+  renderComisiones();
+  if (document.getElementById('view-llamadas').classList.contains('active')) renderCalls();
+};
+
+function filaComision(c, pct, montoVisible){
+  const monto = c.monto_cerrado || 0;
+  const comision = c.resultado === 'Cerró' ? Math.round(monto * pct) / 100 : 0;
+  return `<tr>
+    <td>${c.lead_nombre}</td>
+    <td>${fmtDateOnly(c.fecha)}</td>
+    <td><select class="fi" onchange="updateCallComision('${c.id}','resultado',this.value)">${["Pendiente","Cerró","Seguimiento","No ahora"].map(r=>`<option ${r===(c.resultado||'Pendiente')?'selected':''}>${r}</option>`).join('')}</select></td>
+    <td><input class="fi" type="number" style="width:100px" value="${c.monto_cerrado ?? ''}" placeholder="Monto" onchange="updateCallComision('${c.id}','monto_cerrado',this.value)" /></td>
+    ${montoVisible ? `<td>$${comision.toLocaleString('es-CL')} <span style="color:#8A6E5A;font-size:10.5px">(${pct}%)</span></td>` : ''}
+  </tr>`;
+}
+
+function renderComisiones(){
+  const banner = document.getElementById('comisionesBanner');
+  const body = document.getElementById('comisionesBody');
+  if (!banner || !body || !currentUser) return;
+
+  const esFull = ['paula','marie','mentor'].includes(currentUser.rol);
+  const caroId = (USERS.find(u => u.rol === 'setter') || {}).id;
+  const ileaneId = (USERS.find(u => u.rol === 'closer') || {}).id;
+
+  const llamadasDeCaro = calls.filter(c => c.setter_id === caroId);
+  const llamadasDeIleane = calls.filter(c => c.closer_id === ileaneId);
+  const totalCaro = llamadasDeCaro.filter(c => c.resultado === 'Cerró').reduce((s,c) => s + Math.round((c.monto_cerrado||0) * COMISION_SETTER_PCT) / 100, 0);
+  const totalIleane = llamadasDeIleane.filter(c => c.resultado === 'Cerró').reduce((s,c) => s + Math.round((c.monto_cerrado||0) * COMISION_CLOSER_PCT) / 100, 0);
+
+  banner.textContent = esFull
+    ? 'Vista completa: acá ves ambos lados y el total combinado a pagar. Caro y Ileane, cuando entran, solo ven su propia sección — nunca la de la otra.'
+    : 'Anota acá el resultado real de tus llamadas (Cerró / Pendiente / Seguimiento / No ahora) y el monto cuando cierres. Con eso se calcula tu comisión para el pago de fin de mes.';
+
+  const tabla = (titulo, lista, pct, mostrarComision, totalLabel, total) => `
+    <div class="section-title" style="margin-top:18px">${titulo}</div>
+    <table class="leads">
+      <thead><tr><th>Lead</th><th>Fecha</th><th>Resultado</th><th>Monto cerrado</th>${mostrarComision ? '<th>Comisión</th>' : ''}</tr></thead>
+      <tbody>${lista.length ? lista.map(c => filaComision(c, pct, mostrarComision)).join('') : '<tr><td colspan="5" class="loading-note">Sin llamadas todavía.</td></tr>'}</tbody>
+    </table>
+    ${mostrarComision ? `<div style="text-align:right;font-weight:700;margin-top:6px;color:#3A2E28">${totalLabel}: $${total.toLocaleString('es-CL')}</div>` : ''}
+  `;
+
+  if (esFull) {
+    body.innerHTML = tabla('Caro — llamadas agendadas por ella (comisión 5% si cierran)', llamadasDeCaro, COMISION_SETTER_PCT, true, 'Total comisión Caro', totalCaro)
+      + tabla('Ileane — llamadas cerradas por ella (comisión 10%)', llamadasDeIleane, COMISION_CLOSER_PCT, true, 'Total comisión Ileane', totalIleane)
+      + `<div class="section-title" style="margin-top:18px">Total combinado a pagar</div>
+         <div style="font-size:20px;font-weight:700;color:#3A2E28">$${(totalCaro+totalIleane).toLocaleString('es-CL')}</div>`;
+  } else if (currentUser.rol === 'setter') {
+    body.innerHTML = tabla('Mis llamadas agendadas (comisión 5% si cierran)', llamadasDeCaro, COMISION_SETTER_PCT, true, 'Mi comisión total', totalCaro);
+  } else if (currentUser.rol === 'closer') {
+    body.innerHTML = tabla('Mis llamadas cerradas (comisión 10%)', llamadasDeIleane, COMISION_CLOSER_PCT, true, 'Mi comisión total', totalIleane);
+  } else {
+    body.innerHTML = '<div class="loading-note">Esta sección es solo para el equipo de ventas.</div>';
+  }
+}
+
 // ---------- SINCRONIZACIÓN CON CALENDLY (bajo demanda, vía window.cowork.callMcpTool) ----------
 const CALENDLY_TOOLS = {
   currentUser: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__users-get_current_user',
@@ -2048,7 +2135,7 @@ document.getElementById('btnCsv').addEventListener('click', () => {
 async function refreshAll(){
   await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs(), loadConversaciones()]);
   renderKpis(); renderPriority(); renderCalendario(); applyFilters(); renderPipeline(); renderOrigins(); applyConvoFilters();
-  renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+  renderCalls(); renderPayments(); renderPostventa(); await renderTracker(); renderComisiones();
   renderEstadoBanner(); renderDesconexion();
 }
 async function init(){
@@ -2057,7 +2144,7 @@ async function init(){
   populateStaticSelects();
   await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs(), loadConversaciones()]);
   renderKpis(); renderPriority(); renderCalendario(); renderLeadsTable(leads); renderPipeline(); renderOrigins(); applyConvoFilters();
-  renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+  renderCalls(); renderPayments(); renderPostventa(); await renderTracker(); renderComisiones();
   renderEstadoBanner(); renderDesconexion();
 }
 
