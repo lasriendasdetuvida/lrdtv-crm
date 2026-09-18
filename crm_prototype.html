@@ -294,7 +294,7 @@
     <h1>Las Riendas de tu Vida</h1>
     <div class="sub">Centro de Control Comercial</div>
     <div class="nav-item active" data-view="hoy">📋 Hoy</div>
-    <div class="nav-item" data-view="desconexion">🧳 Me puedo desconectar</div>
+    <div class="nav-item" id="navDesconexion" data-view="desconexion" style="display:none">🧳 Me puedo desconectar</div>
     <div class="nav-item" data-view="calendario">🗓️ Calendario</div>
     <div class="nav-item" data-view="conversaciones">💬 Conversaciones</div>
     <div class="nav-item" data-view="leads">👥 Leads</div>
@@ -2066,6 +2066,10 @@ function enterApp(){
   document.getElementById('appRoot').style.display = 'flex';
   document.getElementById('userBadge').innerHTML = currentUser
     ? `<b>${esc(currentUser.nombre)}</b><a onclick="logout()">Cerrar sesión</a>` : '';
+  // "Me puedo desconectar" es un panel de uso personal de Paula (pedido explícito:
+  // "solo lo necesito ver yo, nadie mas") — se oculta del menú para cualquier otro usuario.
+  const navDesc = document.getElementById('navDesconexion');
+  if (navDesc) navDesc.style.display = (currentUser && currentUser.rol === 'paula') ? '' : 'none';
   init();
 }
 window.logout = async function(){
