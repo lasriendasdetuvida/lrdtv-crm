@@ -1216,10 +1216,33 @@ function renderPriority(){
 let calMode = 'semana';
 let calAnchor = new Date();
 function startOfWeek(d){ const r = new Date(d); const day = (r.getDay() + 6) % 7; r.setDate(r.getDate() - day); r.setHours(0,0,0,0); return r; }
+// Antes los recuadros del calendario tenían cursor:pointer en el CSS pero
+// nunca quedaron conectados a ninguna acción — por eso "no dejaba hacer
+// clic" cuando Paula quería, por ejemplo, marcar una llamada como "no se
+// presentó". Ahora cada tipo de recuadro abre lo que corresponde: una
+// llamada te lleva a la pestaña Llamadas con esa fila resaltada (ahí está
+// el desplegable de Estado para poner "NO SHOW"), y un seguimiento abre
+// directo la ficha del lead.
+function calItemOnclick(it){
+  if (it.callId) return `onclick="irAEditarLlamada('${it.callId}')" style="cursor:pointer"`;
+  if (it.leadId) return `onclick="openModal('${it.leadId}')" style="cursor:pointer"`;
+  return '';
+}
+window.irAEditarLlamada = function(callId){
+  goTo('llamadas');
+  setTimeout(() => {
+    const row = document.querySelector(`tr[data-call-id="${callId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.style.transition = 'background-color .3s';
+    row.style.backgroundColor = '#FCEFD8';
+    setTimeout(() => { row.style.backgroundColor = ''; }, 1800);
+  }, 80);
+};
 function itemsForDay(day, fr){
   const items = [];
-  calls.forEach(c => { if (sameDay(c.fecha, day) && (!fr || c.closer === fr)) items.push({cls:'call', t:c.hora||'', txt:`Llamada: ${c.lead_nombre} (${c.closer||'sin asignar'})`}); });
-  leads.forEach(l => { if (sameDay(l.fecha_proxima_accion, day) && (!fr || l.responsable === fr) && l.temperatura !== "CLIENTE") items.push({cls:'follow', t:'Seguimiento', txt:`${l.proxima_accion||'Seguir'}: ${l.nombre} (${l.responsable||'sin asignar'})`}); });
+  calls.forEach(c => { if (sameDay(c.fecha, day) && (!fr || c.closer === fr)) items.push({cls:'call', t:c.hora||'', txt:`Llamada: ${c.lead_nombre} (${c.closer||'sin asignar'})`, callId: c.id}); });
+  leads.forEach(l => { if (sameDay(l.fecha_proxima_accion, day) && (!fr || l.responsable === fr) && l.temperatura !== "CLIENTE") items.push({cls:'follow', t:'Seguimiento', txt:`${l.proxima_accion||'Seguir'}: ${l.nombre} (${l.responsable||'sin asignar'})`, leadId: l.id}); });
   payments.forEach(p => { if (sameDay(p.vence, day) && p.estado !== "Pagada" && (!fr || p.responsable === fr)) items.push({cls:'payment', t:'Cuota', txt:`${p.cliente} — $${p.monto} (${p.responsable||'sin asignar'})`}); });
   clients.forEach(c => { if (sameDay(c.proxima_sesion, day) && (!fr || c.responsable === fr)) items.push({cls:'checkin', t:'Check-in/sesión', txt:`${c.nombre} (${c.responsable||'sin asignar'})`}); });
   items.sort((a,b) => (a.t||'').localeCompare(b.t||''));
@@ -1240,7 +1263,7 @@ function renderCalendario(){
       const items = itemsForDay(day, fr);
       return `<div class="cal-day ${sameDay(day, today) ? 'today' : ''}">
         <div class="cal-day-header">${day.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit', month:'2-digit'})}</div>
-        ${items.length ? items.map(it => `<div class="cal-item ${it.cls}"><span class="t">${it.t}</span>${it.txt}</div>`).join('') : '<div class="cal-empty">Sin pendientes</div>'}
+        ${items.length ? items.map(it => `<div class="cal-item ${it.cls}" ${calItemOnclick(it)}><span class="t">${it.t}</span>${it.txt}</div>`).join('') : '<div class="cal-empty">Sin pendientes</div>'}
       </div>`;
     }).join('');
   } else {
@@ -1256,7 +1279,7 @@ function renderCalendario(){
         const outside = day.getMonth() !== m;
         return `<div class="cal-day mes-day ${sameDay(day, today) ? 'today' : ''} ${outside ? 'outside' : ''}">
           <div class="cal-day-header">${day.getDate()}</div>
-          ${items.slice(0,3).map(it => `<div class="cal-item mini ${it.cls}">${it.txt}</div>`).join('')}
+          ${items.slice(0,3).map(it => `<div class="cal-item mini ${it.cls}" ${calItemOnclick(it)}>${it.txt}</div>`).join('')}
           ${items.length > 3 ? `<div class="cal-empty">+${items.length-3} más</div>` : (items.length ? '' : '')}
         </div>`;
       }).join('');
@@ -2025,7 +2048,7 @@ function renderCalls(){
   ].map(c => `<div class="kpi-card"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`).join('');
 
   document.getElementById('callsBody').innerHTML = calls.map(c => `
-    <tr><td>${c.lead_nombre}</td><td>${fmtDateOnly(c.fecha)}</td><td>${c.hora||'—'}</td><td>${c.closer||'—'}</td>
+    <tr data-call-id="${c.id}"><td>${c.lead_nombre}</td><td>${fmtDateOnly(c.fecha)}</td><td>${c.hora||'—'}</td><td>${c.closer||'—'}</td>
     <td><select class="fi" onchange="updateCall('${c.id}','estado',this.value)">${["LLAMADA AGENDADA","LLAMADA REALIZADA","NO SHOW","CANCELADA"].map(e=>`<option ${e===c.estado?'selected':''}>${e}</option>`).join('')}</select></td>
     <td><select class="fi" onchange="updateCall('${c.id}','resultado',this.value)">${["Pendiente","Cerró","Seguimiento","No ahora"].map(r=>`<option ${r===(c.resultado||'Pendiente')?'selected':''}>${r}</option>`).join('')}</select></td></tr>`).join('');
 }
