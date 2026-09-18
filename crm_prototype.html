@@ -653,7 +653,7 @@ function sameDay(d1, d2){ if(!d1||!d2) return false; return d1.getFullYear()===d
 // en la vista Orígenes y en el Success Tracker por fuente). El webhook ahora
 // distingue el canal real usando datos que ManyChat ya manda (instagram/ig_username
 // vs whatsapp_phone) — ver comentario en el edge function "webhooks".
-const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR","REEL","ORGANICO","INSTAGRAM","WHATSAPP"];
+const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR","REEL","ORGANICO","INSTAGRAM","WHATSAPP","MANYCHAT"];
 const CANALES = ["DM_ADS","VSL_ADS","ORGANICO"];
 const ESTADOS = ["NUEVO - SIN CONTACTAR","CONTACTADO","ESPERANDO RESPUESTA DEL LEAD","MENSAJE DEL LEAD SIN RESPONDER",
   "CONVERSACIÓN ACTIVA","TOCA SEGUIMIENTO","SEGUIMIENTO ATRASADO","LLAMADA POR AGENDAR","LLAMADA AGENDADA",
@@ -863,7 +863,12 @@ window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${vie
 // la lógica de filtro en dos lugares distintos.
 function hoyKpiSets(){
   const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000);
-  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR");
+  // "Sin contactar" mostraba TODO el histórico de leads nunca contactados
+  // (acumulado de días/semanas), lo que confundía con "nuevos leads hoy" —
+  // Paula pidió (18-09) que esta tarjeta y la fila de prioridad "Ahora"
+  // solo cuenten los leads NUEVOS DE HOY que todavía no se contactaron,
+  // no el backlog completo.
+  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR" && l.fecha_creacion && sameDay(l.fecha_creacion, new Date()));
   const sinResponder = leads.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
   const esperando = leads.filter(l => l.estado === "ESPERANDO RESPUESTA DEL LEAD");
   const hot = leads.filter(l => l.temperatura === "HOT");
@@ -1170,7 +1175,9 @@ window.copiarResumenWhatsApp = async function(){
 
 function renderPriority(){
   const hotNoResp = leads.filter(l => l.temperatura === "HOT" && l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
-  const nuevos = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR");
+  // Mismo criterio que en hoyKpiSets(): solo nuevos de hoy sin contactar,
+  // no todo el backlog acumulado (pedido de Paula, 18-09).
+  const nuevos = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR" && l.fecha_creacion && sameDay(l.fecha_creacion, new Date()));
   const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO");
   const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO");
   const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date()));
@@ -1872,23 +1879,36 @@ function renderPipeline(){
 
 // ---------- ORÍGENES ----------
 let funnelChartInstance = null;
+// Antes esta grilla solo mostraba las tarjetas de ORIGENS y, si el origen
+// real de un lead no calzaba exactamente con ninguna (ej: "MANYCHAT"
+// genérico, o leads migrados de FunnelCenter que quedaron sin ese campo),
+// ese lead desaparecía de la página entera sin ningún aviso. Con los datos
+// reales de hoy (18-09) eso pasaba con 28 de 54 leads — más de la mitad —
+// por eso Paula veía la página "sin marcar nada". Ahora "MANYCHAT" es una
+// categoría más del grid, y se agrega una tarjeta aparte para los leads que
+// de verdad no tienen origen guardado (mayormente migrados de FunnelCenter
+// antes de que se empezara a trackear este dato), en vez de ocultarlos.
+function origenCardHtml(label, items){
+  const wa = items.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
+  const calificados = items.filter(l => l.temperatura === "HOT" || l.temperatura === "WARM").length;
+  const idsSet = new Set(items.map(l => l.id));
+  const llamadas = calls.filter(c => idsSet.has(c.lead_id)).length;
+  const ventas = items.filter(l => l.temperatura === "CLIENTE").length;
+  return `<div class="origin-card">
+    <h4>${esc(label)}</h4>
+    <div class="row"><span>Entradas</span><b>${items.length}</b></div>
+    <div class="row"><span>A WhatsApp</span><b>${wa}</b></div>
+    <div class="row"><span>Calificados</span><b>${calificados}</b></div>
+    <div class="row"><span>Llamadas</span><b>${llamadas}</b></div>
+    <div class="row"><span>Ventas</span><b>${ventas}</b></div>
+    <div class="conv">Conversión a venta: ${items.length ? ((ventas/items.length)*100).toFixed(1) : 0}%</div>
+  </div>`;
+}
 function renderOrigins(){
-  document.getElementById('originGrid').innerHTML = ORIGENS.map(o => {
-    const items = leads.filter(l => l.origen === o);
-    const wa = items.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
-    const calificados = items.filter(l => l.temperatura === "HOT" || l.temperatura === "WARM").length;
-    const llamadas = calls.filter(c => leads.find(l => l.id === c.lead_id && l.origen === o)).length;
-    const ventas = items.filter(l => l.temperatura === "CLIENTE").length;
-    return `<div class="origin-card">
-      <h4>${o}</h4>
-      <div class="row"><span>Entradas</span><b>${items.length}</b></div>
-      <div class="row"><span>A WhatsApp</span><b>${wa}</b></div>
-      <div class="row"><span>Calificados</span><b>${calificados}</b></div>
-      <div class="row"><span>Llamadas</span><b>${llamadas}</b></div>
-      <div class="row"><span>Ventas</span><b>${ventas}</b></div>
-      <div class="conv">Conversión a venta: ${items.length ? ((ventas/items.length)*100).toFixed(1) : 0}%</div>
-    </div>`;
-  }).join('');
+  const cardsConOrigen = ORIGENS.map(o => origenCardHtml(o, leads.filter(l => l.origen === o))).join('');
+  const sinOrigen = leads.filter(l => !l.origen);
+  const cardSinOrigen = sinOrigen.length ? origenCardHtml('Sin origen registrado', sinOrigen) : '';
+  document.getElementById('originGrid').innerHTML = cardsConOrigen + cardSinOrigen;
 
   const totalLeads = leads.length;
   const wa = leads.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
