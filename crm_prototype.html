@@ -439,6 +439,16 @@
     <!-- ORIGENES -->
     <div class="view" id="view-origenes">
       <div class="origin-grid" id="originGrid"></div>
+      <div class="section-title">Leads por día</div>
+      <div class="filters">
+        <button class="btn-ghost" id="leadsDiaModeSemana">Semana</button>
+        <button class="btn-ghost" id="leadsDiaModeMes">Mes</button>
+        <button class="btn-ghost" id="leadsDiaPrev">◀</button>
+        <button class="btn-ghost" id="leadsDiaHoy">Hoy</button>
+        <button class="btn-ghost" id="leadsDiaNext">▶</button>
+        <span id="leadsDiaRangeLabel" style="font-size:12px;font-weight:700;color:#5B3A29;align-self:center;margin-left:6px"></span>
+      </div>
+      <div class="chart-card" style="height:260px"><canvas id="leadsDiaChart"></canvas></div>
       <div class="section-title">Embudo general</div>
       <div class="chart-card" style="height:280px"><canvas id="funnelChart"></canvas></div>
     </div>
@@ -1883,6 +1893,56 @@ let funnelChartInstance = null;
 // categoría más del grid, y se agrega una tarjeta aparte para los leads que
 // de verdad no tienen origen guardado (mayormente migrados de FunnelCenter
 // antes de que se empezara a trackear este dato), en vez de ocultarlos.
+// ---------- LEADS POR DÍA (semana / mes) ----------
+// Pedido de Paula (18-09): saber cuántos leads entran por día, con vista
+// semanal y mensual, para ver el volumen real sin depender del estado de
+// contacto (que ya sacamos por no ser confiable). Usa fecha_creacion, que
+// sí es un dato real y no depende de que el CRM se entere de cada contacto.
+let leadsDiaChartInstance = null;
+let leadsDiaMode = 'semana';
+let leadsDiaAnchor = new Date();
+function renderLeadsPorDia(){
+  const canvas = document.getElementById('leadsDiaChart');
+  if (!canvas) return;
+  document.getElementById('leadsDiaModeSemana').classList.toggle('cal-mode-active', leadsDiaMode==='semana');
+  document.getElementById('leadsDiaModeMes').classList.toggle('cal-mode-active', leadsDiaMode==='mes');
+
+  let days = [];
+  if (leadsDiaMode === 'semana') {
+    const start = startOfWeek(leadsDiaAnchor);
+    for (let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d); }
+    document.getElementById('leadsDiaRangeLabel').textContent = `${fmtDateOnly(days[0])} – ${fmtDateOnly(days[6])}`;
+  } else {
+    const y = leadsDiaAnchor.getFullYear(), m = leadsDiaAnchor.getMonth();
+    const totalDias = new Date(y, m+1, 0).getDate();
+    for (let i=1;i<=totalDias;i++) days.push(new Date(y, m, i));
+    document.getElementById('leadsDiaRangeLabel').textContent = leadsDiaAnchor.toLocaleDateString('es-CL', {month:'long', year:'numeric'});
+  }
+  const labels = days.map(d => leadsDiaMode==='semana' ? d.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit'}) : String(d.getDate()));
+  const counts = days.map(d => leads.filter(l => l.fecha_creacion && sameDay(l.fecha_creacion, d)).length);
+
+  if (leadsDiaChartInstance) leadsDiaChartInstance.destroy();
+  leadsDiaChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Leads', data: counts, backgroundColor: '#8A6E5A' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+document.getElementById('leadsDiaModeSemana').addEventListener('click', () => { leadsDiaMode='semana'; renderLeadsPorDia(); });
+document.getElementById('leadsDiaModeMes').addEventListener('click', () => { leadsDiaMode='mes'; renderLeadsPorDia(); });
+document.getElementById('leadsDiaHoy').addEventListener('click', () => { leadsDiaAnchor=new Date(); renderLeadsPorDia(); });
+document.getElementById('leadsDiaPrev').addEventListener('click', () => {
+  leadsDiaAnchor = new Date(leadsDiaAnchor);
+  if (leadsDiaMode==='semana') leadsDiaAnchor.setDate(leadsDiaAnchor.getDate()-7); else leadsDiaAnchor.setMonth(leadsDiaAnchor.getMonth()-1);
+  renderLeadsPorDia();
+});
+document.getElementById('leadsDiaNext').addEventListener('click', () => {
+  leadsDiaAnchor = new Date(leadsDiaAnchor);
+  if (leadsDiaMode==='semana') leadsDiaAnchor.setDate(leadsDiaAnchor.getDate()+7); else leadsDiaAnchor.setMonth(leadsDiaAnchor.getMonth()+1);
+  renderLeadsPorDia();
+});
+
 function origenCardHtml(label, items){
   const wa = items.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
   const calificados = items.filter(l => l.temperatura === "HOT" || l.temperatura === "WARM").length;
@@ -1904,6 +1964,8 @@ function renderOrigins(){
   const sinOrigen = leads.filter(l => !l.origen);
   const cardSinOrigen = sinOrigen.length ? origenCardHtml('Sin origen registrado', sinOrigen) : '';
   document.getElementById('originGrid').innerHTML = cardsConOrigen + cardSinOrigen;
+
+  renderLeadsPorDia();
 
   const totalLeads = leads.length;
   const wa = leads.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
