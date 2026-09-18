@@ -651,6 +651,9 @@ async function sql(query){
   }
 }
 function esc(s){ return String(s==null ? '' : s).replace(/'/g, "''"); }
+// Link directo a la conversación real de WhatsApp (wa.me), a partir del teléfono
+// guardado en el lead (viene con +, espacios, etc. — wa.me solo acepta dígitos).
+function waLink(telefono){ if(!telefono) return ''; const digits = String(telefono).replace(/[^0-9]/g,''); return digits ? `https://wa.me/${digits}` : ''; }
 function toNum(v){ return (v===null || v===undefined || v==='') ? null : Number(v); }
 function toDate(v){ return v ? new Date(v) : null; }
 function fmt(d){ if(!d) return '—'; return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
@@ -1359,6 +1362,7 @@ function renderConvoList(list){
     const canal = c.instagram && !c.telefono ? 'INSTAGRAM' : (c.telefono ? 'WHATSAPP' : (c.origen || '—'));
     const inicial = (c.nombre || '?').trim().charAt(0).toUpperCase();
     const preview = c.ultimo_texto ? c.ultimo_texto : (c.entrada_manychat || 'Llegó sin escribir texto (comentario/clic)');
+    const wa = waLink(c.telefono);
     return `<div class="convo-item ${sinResponder ? 'unread' : ''}" onclick="openModal('${c.id}')">
       <div class="convo-avatar">${inicial}</div>
       <div class="convo-main">
@@ -1366,6 +1370,7 @@ function renderConvoList(list){
           <span class="convo-nombre">${c.nombre}</span>
           <span class="convo-canal">${canal}</span>
           <span class="pill ${pillClass(c.temperatura)}" style="font-size:9.5px;padding:1px 6px">${c.temperatura}</span>
+          ${wa ? `<a href="${wa}" target="_blank" rel="noopener" title="Abrir esta conversación en WhatsApp" onclick="event.stopPropagation()" style="font-size:9.5px;font-weight:700;color:#2E7D32;text-decoration:none;margin-left:2px">🟢 WhatsApp ↗</a>` : ''}
         </div>
         <div class="convo-preview ${sinResponder ? 'entrante' : ''}">${sinResponder ? '↩ ' : ''}${preview}</div>
       </div>
@@ -1443,7 +1448,8 @@ window.openModal = async function(id){
   const l = c || leads.find(x => x.id === id);
   if (!l) return;
   document.getElementById('modalName').textContent = l.nombre;
-  document.getElementById('modalSub').textContent = `${l.telefono||'sin teléfono'} · ${l.instagram||'sin instagram'} · Creado ${fmtDateOnly(l.fecha_creacion)}`;
+  const modalWa = waLink(l.telefono);
+  document.getElementById('modalSub').innerHTML = `${l.telefono||'sin teléfono'}${modalWa ? ` <a href="${modalWa}" target="_blank" rel="noopener" style="color:#2E7D32;font-weight:700;text-decoration:none">🟢 Abrir en WhatsApp ↗</a>` : ''} · ${l.instagram||'sin instagram'} · Creado ${fmtDateOnly(l.fecha_creacion)}`;
   document.getElementById('modalDatosBody').style.display = 'none';
   document.getElementById('modalDatosArrow').textContent = '▸';
   document.getElementById('modalFields').innerHTML = `
