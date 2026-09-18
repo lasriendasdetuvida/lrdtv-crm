@@ -45,6 +45,24 @@
   .kpi-card.hot .num { color: #D6690B; }
   .kpi-card.good .num { color: #2E7D32; }
 
+  .estado-banner {
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; border: 1px solid #EADFD3; background: white;
+  }
+  .estado-banner.verde { background: #EAF6EA; border-color: #BFE0BF; }
+  .estado-banner.amarillo { background: #FCF3DC; border-color: #EAD190; }
+  .estado-banner.rojo { background: #FBE4E1; border-color: #F0BAB2; }
+  .estado-top { display: flex; align-items: center; gap: 8px; }
+  .estado-dot { font-size: 18px; }
+  .estado-label { font-size: 14px; font-weight: 800; color: #5B3A29; letter-spacing: .3px; }
+  .estado-sub { font-size: 12.5px; color: #6F5847; margin-top: 4px; }
+  .estado-razones { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: #5B3A29; }
+  .estado-razones li { margin-bottom: 2px; }
+  .btn-wpp {
+    border: none; background: #2E7D32; color: white; font-size: 12px; font-weight: 600; padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; margin-top: 10px;
+  }
+  .btn-wpp:hover { background: #276b2b; }
+
   .section-title { font-size: 14px; font-weight: 700; color: #5B3A29; margin: 24px 0 10px; }
 
   .priority-list { display: flex; flex-direction: column; gap: 8px; }
@@ -245,6 +263,7 @@
     <h1>Las Riendas de tu Vida</h1>
     <div class="sub">Centro de Control Comercial</div>
     <div class="nav-item active" data-view="hoy">📋 Hoy</div>
+    <div class="nav-item" data-view="desconexion">🧳 Me puedo desconectar</div>
     <div class="nav-item" data-view="calendario">🗓️ Calendario</div>
     <div class="nav-item" data-view="leads">👥 Leads</div>
     <div class="nav-item" data-view="pipeline">🧭 Pipeline</div>
@@ -267,9 +286,23 @@
 
     <!-- HOY -->
     <div class="view active" id="view-hoy">
+      <div id="estadoNegocioBanner"></div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="section-title">Qué tengo que hacer hoy</div>
       <div class="priority-list" id="priorityList"></div>
+    </div>
+
+    <!-- ME PUEDO DESCONECTAR -->
+    <div class="view" id="view-desconexion">
+      <div class="demo-banner">
+        Vista pensada para responder en 30 segundos: "¿está todo bajo control?" Ningún número aquí es normal —
+        todos son cosas que, si aparecen, es porque algo necesita ojos humanos. Si todo está en cero, puedes desconectarte tranquila.
+      </div>
+      <div id="desconexionMsg" class="estado-banner"></div>
+      <div class="kpi-grid" id="desconexionGrid"></div>
+      <button class="btn-wpp" onclick="copiarResumenWhatsApp()">📋 Copiar resumen para WhatsApp</button>
+      <div class="section-title">Pendientes con plan de resolución (qué pasó · responsable · acción · vence · escalamiento)</div>
+      <div class="priority-list" id="planResolucionList"></div>
     </div>
 
     <!-- CALENDARIO -->
@@ -552,6 +585,9 @@ let PRODUCTS = [];
 let leads = [];
 let calls = [];
 let payments = [];
+let sales = [];
+let pendientesCriticos = [];
+let integrationLogs = [];
 let clients = [];
 
 // ---------- CARGA DE DATOS ----------
@@ -602,6 +638,39 @@ async function loadPayments(){
     order by pay.vence;
   `);
   payments = rows.map(p => ({ ...p, monto: toNum(p.monto), vence: p.vence ? new Date(p.vence + 'T00:00:00') : null, cuota: `${p.numero_cuota}/${p.total_cuotas}` }));
+}
+
+// fecha_venta = fecha real de la venta (tabla sales). Es la fuente correcta
+// para "ventas hoy" — antes se usaba por error ultima_interaccion del lead,
+// que se actualiza con cualquier touchpoint, no solo con una venta.
+async function loadSales(){
+  const rows = await sql(`select id, lead_id, fecha_venta, created_at from sales;`);
+  sales = rows.map(s => ({ ...s, fecha_venta: s.fecha_venta ? new Date(s.fecha_venta) : (s.created_at ? new Date(s.created_at) : null) }));
+}
+
+// pendientes_criticos: lo único que hoy no tiene dónde vivir en el resto del
+// esquema — bloqueos, decisiones que necesitan aprobación de Paula, e
+// incidencias que alguien está siguiendo. Empieza vacía; se llena con uso real.
+async function loadPendientesCriticos(){
+  const rows = await sql(`
+    select pc.id, pc.tipo, pc.titulo, pc.descripcion, pc.lead_id, l.nombre as lead_nombre,
+      pc.responsable_id, u.nombre as responsable, pc.accion_requerida, pc.vence_at,
+      pc.escalar_a_id, ue.nombre as escalar_a, pc.escalado, pc.estado, pc.opciones, pc.created_at
+    from pendientes_criticos pc
+    left join leads l on l.id = pc.lead_id
+    left join users u on u.id = pc.responsable_id
+    left join users ue on ue.id = pc.escalar_a_id
+    order by pc.vence_at nulls last, pc.created_at desc;
+  `);
+  pendientesCriticos = rows.map(p => ({
+    ...p,
+    vence_at: p.vence_at ? new Date(p.vence_at) : null,
+    created_at: p.created_at ? new Date(p.created_at) : null,
+  }));
+}
+
+async function loadIntegrationLogs(){
+  integrationLogs = await sql(`select integracion, estado, ultima_sincronizacion, mensaje from integration_sync_logs order by integracion;`);
 }
 
 async function loadClients(){
@@ -657,37 +726,269 @@ document.querySelectorAll('.nav-item').forEach(item => {
 window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${view}"]`).click(); };
 
 // ---------- HOY ----------
+// hoyKpiSets() calcula, para cada tarjeta KPI de "Hoy", tanto el número
+// como la lista real de personas detrás de ese número — así el número y
+// el detalle al hacer click siempre salen de la misma fuente, sin duplicar
+// la lógica de filtro en dos lugares distintos.
+function hoyKpiSets(){
+  const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000);
+  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR");
+  const sinResponder = leads.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
+  const esperando = leads.filter(l => l.estado === "ESPERANDO RESPUESTA DEL LEAD");
+  const hot = leads.filter(l => l.temperatura === "HOT");
+  const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO");
+  const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO");
+  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date())).map(c => {
+    const l = leads.find(x => x.id === c.lead_id) || {};
+    return { id: c.lead_id, nombre: c.lead_nombre, origen: l.origen, estado: c.estado, responsable: c.closer, producto: l.producto, monto: l.monto };
+  });
+  const noShows = leads.filter(l => l.estado === "NO SHOW");
+  const cuotasPend = payments.filter(p => p.estado !== "Pagada").map(p => ({
+    id: p.lead_id, nombre: p.cliente, origen: null, estado: p.estado, responsable: p.responsable, producto: p.producto, monto: p.monto
+  }));
+  // Ventas hoy: se basa en la fecha real de venta (sales.fecha_venta), no en
+  // la última interacción del lead — ese era el bug que reportó Paula (un
+  // touchpoint cualquiera de hoy hacía aparecer una "venta" que no existió).
+  const ventasHoy = leads.filter(l => l.temperatura === "CLIENTE" && sales.some(s => s.lead_id === l.id && s.fecha_venta && sameDay(s.fecha_venta, new Date())));
+  const ventasMes = leads.filter(l => l.temperatura === "CLIENTE");
+  return { nuevosHoy, sinContactar, sinResponder, esperando, hot, followToday, followLate, callsToday, noShows, cuotasPend, ventasHoy, ventasMes };
+}
+
 function renderKpis(){
-  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR").length;
-  const sinResponder = leads.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER").length;
-  const esperando = leads.filter(l => l.estado === "ESPERANDO RESPUESTA DEL LEAD").length;
-  const hot = leads.filter(l => l.temperatura === "HOT").length;
-  const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO").length;
-  const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO").length;
-  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date())).length;
-  const noShows = leads.filter(l => l.estado === "NO SHOW").length;
-  const cuotasPend = payments.filter(p => p.estado !== "Pagada").length;
-  const ventasHoy = leads.filter(l => l.temperatura === "CLIENTE" && l.ultima_interaccion && (new Date() - l.ultima_interaccion) < 86400000).length;
-  const ventasMes = leads.filter(l => l.temperatura === "CLIENTE").length;
-  const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000).length;
+  const sets = hoyKpiSets();
   const cards = [
-    {n: nuevosHoy, l: "Nuevos leads hoy", cls:""},
-    {n: sinContactar, l: "Sin contactar", cls:"alert"},
-    {n: sinResponder, l: "Mensajes sin responder", cls:"alert"},
-    {n: esperando, l: "Esperando resp. del lead", cls:""},
-    {n: hot, l: "Leads calientes", cls:"hot"},
-    {n: followToday, l: "Follow-ups para hoy", cls:""},
-    {n: followLate, l: "Follow-ups atrasados", cls:"alert"},
-    {n: callsToday, l: "Llamadas hoy", cls:""},
-    {n: noShows, l: "No-shows por recuperar", cls:"alert"},
-    {n: cuotasPend, l: "Cuotas pendientes", cls:""},
-    {n: ventasHoy, l: "Ventas hoy", cls:"good"},
-    {n: ventasMes, l: "Ventas totales", cls:"good"},
+    {n: sets.nuevosHoy.length, l: "Nuevos leads hoy", cls:"", key:"nuevosHoy"},
+    {n: sets.sinContactar.length, l: "Sin contactar", cls:"alert", key:"sinContactar"},
+    {n: sets.sinResponder.length, l: "Mensajes sin responder", cls:"alert", key:"sinResponder"},
+    {n: sets.esperando.length, l: "Esperando resp. del lead", cls:"", key:"esperando"},
+    {n: sets.hot.length, l: "Leads calientes", cls:"hot", key:"hot"},
+    {n: sets.followToday.length, l: "Follow-ups para hoy", cls:"", key:"followToday"},
+    {n: sets.followLate.length, l: "Follow-ups atrasados", cls:"alert", key:"followLate"},
+    {n: sets.callsToday.length, l: "Llamadas hoy", cls:"", key:"callsToday"},
+    {n: sets.noShows.length, l: "No-shows por recuperar", cls:"alert", key:"noShows"},
+    {n: sets.cuotasPend.length, l: "Cuotas pendientes", cls:"", key:"cuotasPend"},
+    {n: sets.ventasHoy.length, l: "Ventas hoy", cls:"good", key:"ventasHoy"},
+    {n: sets.ventasMes.length, l: "Ventas totales", cls:"good", key:"ventasMes"},
   ];
   document.getElementById('kpiGrid').innerHTML = cards.map(c =>
-    `<div class="kpi-card ${c.cls}"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`
+    `<div class="kpi-card ${c.cls}" onclick="openHoyDrill('${c.key}','${c.l}')" style="cursor:pointer;"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`
   ).join('');
 }
+// Reutiliza el mismo modal de detalle del Success Tracker (#drillOverlay):
+// clic en cualquier tarjeta KPI de "Hoy" abre la lista real detrás del número,
+// y clic en una fila abre la ficha completa de ese lead.
+window.openHoyDrill = function(key, label){
+  const sets = hoyKpiSets();
+  const list = sets[key] || [];
+  document.getElementById('drillTitle').textContent = label;
+  document.getElementById('drillSub').textContent = `${list.length} registros`;
+  document.getElementById('drillBody').innerHTML = list.length ? list.map(l => `
+    <tr ${l.id ? `onclick="document.getElementById('drillOverlay').classList.remove('open'); openModal('${l.id}')" style="cursor:pointer;"` : ''}>
+      <td>${l.nombre||'—'}</td><td>${l.origen||'—'}</td><td>${l.estado||'—'}</td><td>${l.responsable||'—'}</td><td>${l.producto||'—'}</td><td>${l.monto?'$'+l.monto:'—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" style="color:#8A6E5A;font-size:12px;padding:10px;">Sin registros en este momento.</td></tr>';
+  document.getElementById('drillOverlay').classList.add('open');
+};
+
+// ---------- ESTADO DEL NEGOCIO HOY / AUTONOMÍA OPERATIVA (Parte 21) ----------
+// Reglas explícitas y fijas — el estado NO baja a rojo solo porque existen
+// pendientes normales. Solo baja cuando algo requiere intervención real,
+// urgente, o una decisión que solo Paula puede tomar.
+//
+// ROJO  = al menos uno de: bloqueo activo, decisión pendiente de dirección,
+//         cuota atrasada, lead HOT sin responder, lead HOT/CLIENTE sin
+//         responsable asignado, o una integración caída.
+// AMARILLO = (sin nada de lo anterior) y hay: seguimientos atrasados,
+//         cuotas por vencer en <48h, o incidencias abiertas en seguimiento.
+// VERDE = ninguno de los anteriores. Pendientes normales (con responsable
+//         y fecha, aún dentro de plazo) no cuentan para este semáforo.
+function estadoNegocioHoy(){
+  const en2dias = new Date(Date.now() + 2*86400000);
+  const bloqueos = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'bloqueo');
+  const decisiones = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'decision_direccion');
+  const incidenciasAbiertas = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'incidencia');
+  const pagosVencidos = payments.filter(p => p.estado === 'Atrasada');
+  const pagosPorVencerPronto = payments.filter(p => p.estado === 'Por vencer' && p.vence && p.vence <= en2dias);
+  const hotSinResponder = leads.filter(l => l.temperatura === 'HOT' && l.estado === 'MENSAJE DEL LEAD SIN RESPONDER');
+  const altoValorSinResponsable = leads.filter(l => ['HOT','CLIENTE'].includes(l.temperatura) && !l.responsable_id);
+  const integracionesEnError = integrationLogs.filter(i => i.estado === 'error');
+  const seguimientosAtrasados = leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO');
+
+  const razonesRojo = [];
+  if (bloqueos.length) razonesRojo.push(`${bloqueos.length} bloqueo(s) activo(s)`);
+  if (decisiones.length) razonesRojo.push(`${decisiones.length} decisión(es) esperando tu aprobación`);
+  if (pagosVencidos.length) razonesRojo.push(`${pagosVencidos.length} cuota(s) atrasada(s)`);
+  if (hotSinResponder.length) razonesRojo.push(`${hotSinResponder.length} lead(s) caliente(s) sin responder`);
+  if (altoValorSinResponsable.length) razonesRojo.push(`${altoValorSinResponsable.length} lead(s) de alto valor sin responsable`);
+  if (integracionesEnError.length) razonesRojo.push(`${integracionesEnError.length} integración(es) caída(s)`);
+
+  const razonesAmarillo = [];
+  if (seguimientosAtrasados.length) razonesAmarillo.push(`${seguimientosAtrasados.length} seguimiento(s) atrasado(s)`);
+  if (pagosPorVencerPronto.length) razonesAmarillo.push(`${pagosPorVencerPronto.length} cuota(s) por vencer en 48h`);
+  if (incidenciasAbiertas.length) razonesAmarillo.push(`${incidenciasAbiertas.length} incidencia(s) en seguimiento`);
+
+  let color = 'VERDE', razones = [];
+  if (razonesRojo.length) { color = 'ROJO'; razones = razonesRojo; }
+  else if (razonesAmarillo.length) { color = 'AMARILLO'; razones = razonesAmarillo; }
+
+  return { color, razones };
+}
+function renderEstadoBanner(){
+  const el = document.getElementById('estadoNegocioBanner');
+  if (!el) return;
+  const { color, razones } = estadoNegocioHoy();
+  const cfg = {
+    VERDE:    { emoji:'🟢', txt:'Todo controlado. No hay pendientes críticos.' },
+    AMARILLO: { emoji:'🟡', txt:'Hay pendientes, pero están asignados y con fecha de resolución.' },
+    ROJO:     { emoji:'🔴', txt:'Existe al menos un problema que requiere tu intervención o decisión.' },
+  }[color];
+  el.className = `estado-banner ${color.toLowerCase()}`;
+  el.innerHTML = `<div class="estado-top"><span class="estado-dot">${cfg.emoji}</span><span class="estado-label">ESTADO DEL NEGOCIO HOY: ${color}</span></div>
+    <div class="estado-sub">${cfg.txt}</div>
+    ${razones.length ? `<ul class="estado-razones">${razones.map(r=>`<li>${r}</li>`).join('')}</ul>` : ''}`;
+}
+
+// ---------- PANEL "ME PUEDO DESCONECTAR" (Parte 22) ----------
+function desconexionSets(){
+  const sinResponsable = leads.filter(l => !l.responsable_id && l.temperatura !== 'CLIENTE');
+  const seguimientosVencidos = leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO');
+  const calientesSinAccion = leads.filter(l => l.temperatura === 'HOT' && !l.fecha_proxima_accion);
+  const manana = new Date(Date.now() + 86400000);
+  const llamadas24h = calls.filter(c => c.estado === 'LLAMADA AGENDADA' && (sameDay(c.fecha, new Date()) || sameDay(c.fecha, manana))).map(c => {
+    const l = leads.find(x => x.id === c.lead_id) || {};
+    return { id: c.lead_id, nombre: c.lead_nombre, origen: l.origen, estado: c.estado, responsable: c.closer, producto: l.producto, monto: l.monto };
+  });
+  const pagosVencidos = payments.filter(p => p.estado === 'Atrasada').map(p => ({
+    id: p.lead_id, nombre: p.cliente, origen: null, estado: p.estado, responsable: p.responsable, producto: p.producto, monto: p.monto
+  }));
+  const incidencias = pendientesCriticos.filter(p => p.tipo === 'incidencia' && p.estado === 'abierto');
+  const bloqueos = pendientesCriticos.filter(p => p.tipo === 'bloqueo' && p.estado === 'abierto');
+  const decisiones = pendientesCriticos.filter(p => p.tipo === 'decision_direccion' && p.estado === 'abierto');
+  return { sinResponsable, seguimientosVencidos, calientesSinAccion, llamadas24h, pagosVencidos, incidencias, bloqueos, decisiones };
+}
+function renderDesconexion(){
+  const s = desconexionSets();
+  const integracionesError = integrationLogs.filter(i => i.estado === 'error');
+  const totalUrgente = s.sinResponsable.length + s.seguimientosVencidos.length + s.calientesSinAccion.length
+    + s.pagosVencidos.length + s.incidencias.length + s.bloqueos.length + s.decisiones.length + integracionesError.length;
+
+  const cards = [
+    {n:s.sinResponsable.length, l:'Leads sin responsable', key:'sinResponsable', cls: s.sinResponsable.length?'alert':'good'},
+    {n:s.seguimientosVencidos.length, l:'Seguimientos vencidos', key:'seguimientosVencidos', cls: s.seguimientosVencidos.length?'alert':'good'},
+    {n:s.calientesSinAccion.length, l:'Calientes sin próxima acción', key:'calientesSinAccion', cls: s.calientesSinAccion.length?'alert':'good'},
+    {n:s.llamadas24h.length, l:'Llamadas próximas 24h', key:'llamadas24h', cls:''},
+    {n:s.pagosVencidos.length, l:'Pagos vencidos', key:'pagosVencidos', cls: s.pagosVencidos.length?'alert':'good'},
+    {n:integracionesError.length, l:'Incidencias de integración', key:'integraciones', cls: integracionesError.length?'alert':'good'},
+    {n:s.bloqueos.length, l:'Tareas bloqueadas', key:'bloqueos', cls: s.bloqueos.length?'alert':'good'},
+    {n:s.decisiones.length, l:'Requieren tu decisión', key:'decisiones', cls: s.decisiones.length?'hot':'good'},
+  ];
+  document.getElementById('desconexionGrid').innerHTML = cards.map(c =>
+    `<div class="kpi-card ${c.cls}" onclick="openDesconexionDrill('${c.key}','${c.l}')" style="cursor:pointer;"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`
+  ).join('');
+
+  const banner = document.getElementById('desconexionMsg');
+  if (totalUrgente === 0) {
+    banner.className = 'estado-banner verde';
+    banner.innerHTML = `<b>🟢 Todo bajo control. No hay pendientes que requieran tu intervención.</b>`;
+  } else {
+    banner.className = 'estado-banner ' + ((s.bloqueos.length || s.decisiones.length) ? 'rojo' : 'amarillo');
+    banner.innerHTML = `<b>${totalUrgente} punto(s) que conviene revisar antes de desconectarte</b> — detalle abajo. (Nota: aún no existe en la base un campo de "llamada confirmada", así que "llamadas próximas 24h" muestra todas las agendadas, confirmadas o no.)`;
+  }
+
+  const planList = [...s.bloqueos, ...s.decisiones, ...s.incidencias];
+  let planHtml = planList.length ? planList.map(p => `
+    <div class="priority-row ${p.tipo!=='incidencia' ? 'urgent' : 'now'}">
+      <div style="flex:1;">
+        <div><b>${p.titulo}</b>${p.lead_nombre ? ` — ${p.lead_nombre}` : ''} <span class="tag">${p.tipo.replace('_',' ')}</span></div>
+        <div style="font-size:12px;color:#8A6E5A;margin-top:3px;">
+          Qué pasó: ${p.descripcion||'—'} · Responsable: ${p.responsable||'sin asignar'} ·
+          Qué debe hacer: ${p.accion_requerida||'—'} · Vence: ${p.vence_at ? fmt(p.vence_at) : '—'} ·
+          Escala a: ${p.escalar_a || '—'}${p.escalado ? ' (ya escalado)' : ''}${p.opciones ? ` · Opciones: ${p.opciones}` : ''}
+        </div>
+      </div>
+    </div>`).join('') : `<div class="priority-row"><span class="txt">No hay bloqueos, incidencias ni decisiones pendientes en este momento.</span></div>`;
+  if (integracionesError.length) {
+    planHtml += integracionesError.map(i => `
+      <div class="priority-row urgent"><span class="txt"><b>${i.integracion}</b> está en error: ${i.mensaje||'sin detalle'} (última sync: ${i.ultima_sincronizacion?fmt(new Date(i.ultima_sincronizacion)):'—'})</span></div>
+    `).join('');
+  }
+  document.getElementById('planResolucionList').innerHTML = planHtml;
+}
+window.openDesconexionDrill = function(key, label){
+  const s = desconexionSets();
+  if (key === 'integraciones') {
+    const rows = integrationLogs.filter(i => i.estado === 'error');
+    document.getElementById('drillTitle').textContent = label;
+    document.getElementById('drillSub').textContent = `${rows.length} integración(es) en error`;
+    document.getElementById('drillBody').innerHTML = rows.length ? rows.map(i => `<tr><td>${i.integracion}</td><td>—</td><td>error</td><td>—</td><td>${i.mensaje||'—'}</td><td>—</td></tr>`).join('') : '<tr><td colspan="6">Sin incidencias.</td></tr>';
+    document.getElementById('drillOverlay').classList.add('open');
+    return;
+  }
+  let list;
+  if (['bloqueos','decisiones','incidencias'].includes(key)) {
+    list = s[key].map(p => ({
+      id: p.lead_id, nombre: p.titulo, origen: p.tipo, estado: p.estado, responsable: p.responsable||'sin asignar', producto: p.accion_requerida, monto: null
+    }));
+  } else {
+    list = s[key] || [];
+  }
+  document.getElementById('drillTitle').textContent = label;
+  document.getElementById('drillSub').textContent = `${list.length} registros`;
+  document.getElementById('drillBody').innerHTML = list.length ? list.map(l => `
+    <tr ${l.id ? `onclick="document.getElementById('drillOverlay').classList.remove('open'); openModal('${l.id}')" style="cursor:pointer;"` : ''}>
+      <td>${l.nombre||'—'}</td><td>${l.origen||'—'}</td><td>${l.estado||'—'}</td><td>${l.responsable||'—'}</td><td>${l.producto||'—'}</td><td>${l.monto?'$'+l.monto:'—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" style="color:#8A6E5A;font-size:12px;padding:10px;">Sin registros en este momento.</td></tr>';
+  document.getElementById('drillOverlay').classList.add('open');
+};
+
+// ---------- RESUMEN PARA WHATSAPP (Parte 27) ----------
+// No hay (todavía) ningún canal de WhatsApp saliente conectado a esta sesión,
+// así que esto genera el texto y lo copia al portapapeles — Paula lo pega
+// donde lo necesite enviar. Si más adelante se conecta Twilio/Infobip/etc.,
+// este mismo texto se puede enviar automático con una tarea programada.
+function buildResumenWhatsApp(){
+  const { color } = estadoNegocioHoy();
+  const kSets = hoyKpiSets();
+  const d = desconexionSets();
+  let txt = `ESTADO: ${color}\n`;
+  txt += `Ventas hoy: ${kSets.ventasHoy.length}\n`;
+  txt += `Citas próximas 24h: ${d.llamadas24h.length}\n`;
+  txt += `Pagos vencidos: ${d.pagosVencidos.length}\n`;
+  txt += `Leads sin responsable: ${d.sinResponsable.length}\n`;
+  if (color === 'VERDE') {
+    txt += `Equipo: todo al día.\nNo necesitas intervenir.`;
+    return txt;
+  }
+  const normales = [
+    ...d.seguimientosVencidos.map(l => `Seguimiento atrasado — ${l.nombre} — responsable ${l.responsable||'sin asignar'}`),
+    ...d.pagosVencidos.map(l => `Pago vencido — ${l.nombre||'—'} — responsable ${l.responsable||'sin asignar'}`),
+    ...d.incidencias.map(p => `Incidencia — ${p.titulo} — responsable ${p.responsable||'sin asignar'}`),
+  ];
+  if (normales.length) {
+    txt += `\n${normales.length} pendiente(s) detectado(s):\n`;
+    normales.slice(0,6).forEach((t,i) => txt += `${i+1}. ${t}\n`);
+    txt += `No requieren intervención tuya (ya tienen responsable).`;
+  }
+  if (d.decisiones.length) {
+    txt += `\n\nREQUIERE TU DECISIÓN:\n`;
+    d.decisiones.forEach(dec => {
+      txt += `- ${dec.titulo}${dec.descripcion ? ': '+dec.descripcion : ''}${dec.opciones ? ' | Opciones: '+dec.opciones : ''}${dec.vence_at ? ' | Fecha límite: '+fmt(dec.vence_at) : ''}\n`;
+    });
+  }
+  if (d.bloqueos.length) {
+    txt += `\nBLOQUEOS ACTIVOS:\n`;
+    d.bloqueos.forEach(b => txt += `- ${b.titulo} (responsable: ${b.responsable||'sin asignar'})\n`);
+  }
+  return txt.trim();
+}
+window.copiarResumenWhatsApp = async function(){
+  const txt = buildResumenWhatsApp();
+  try {
+    await navigator.clipboard.writeText(txt);
+    alert('Resumen copiado. Pégalo donde lo necesites enviar.');
+  } catch(e) {
+    prompt('Copia manualmente este resumen:', txt);
+  }
+};
 
 function renderPriority(){
   const hotNoResp = leads.filter(l => l.temperatura === "HOT" && l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
@@ -1413,17 +1714,19 @@ document.getElementById('btnCsv').addEventListener('click', () => {
 
 // ---------- REFRESH + INIT ----------
 async function refreshAll(){
-  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients()]);
+  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs()]);
   renderKpis(); renderPriority(); renderCalendario(); applyFilters(); renderPipeline(); renderOrigins();
   renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+  renderEstadoBanner(); renderDesconexion();
 }
 async function init(){
   document.getElementById('kpiGrid').innerHTML = '<div class="loading-note">Cargando desde la base real…</div>';
   await loadReference();
   populateStaticSelects();
-  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients()]);
+  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs()]);
   renderKpis(); renderPriority(); renderCalendario(); renderLeadsTable(leads); renderPipeline(); renderOrigins();
   renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+  renderEstadoBanner(); renderDesconexion();
 }
 
 // ---------- LOGIN REAL (Supabase Auth, con RLS de verdad detrás) ----------
