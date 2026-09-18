@@ -544,7 +544,12 @@ function fmtDateOnly(d){ if(!d) return '—'; return d.toLocaleDateString('es-CL
 function sameDay(d1, d2){ if(!d1||!d2) return false; return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); }
 
 // ---------- TAXONOMÍAS FIJAS DEL NEGOCIO (categorías, no datos fabricados) ----------
-const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR","REEL","ORGANICO"];
+// INSTAGRAM y WHATSAPP: antes cualquier lead de ManyChat quedaba con el origen
+// genérico "MANYCHAT" y ni siquiera aparecía en esta lista (por eso era invisible
+// en la vista Orígenes y en el Success Tracker por fuente). El webhook ahora
+// distingue el canal real usando datos que ManyChat ya manda (instagram/ig_username
+// vs whatsapp_phone) — ver comentario en el edge function "webhooks".
+const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR","REEL","ORGANICO","INSTAGRAM","WHATSAPP"];
 const CANALES = ["DM_ADS","VSL_ADS","ORGANICO"];
 const ESTADOS = ["NUEVO - SIN CONTACTAR","CONTACTADO","ESPERANDO RESPUESTA DEL LEAD","MENSAJE DEL LEAD SIN RESPONDER",
   "CONVERSACIÓN ACTIVA","TOCA SEGUIMIENTO","SEGUIMIENTO ATRASADO","LLAMADA POR AGENDAR","LLAMADA AGENDADA",
@@ -801,30 +806,36 @@ window.openHoyDrill = function(key, label){
 //         cuotas por vencer en <48h, o incidencias abiertas en seguimiento.
 // VERDE = ninguno de los anteriores. Pendientes normales (con responsable
 //         y fecha, aún dentro de plazo) no cuentan para este semáforo.
-function estadoNegocioHoy(){
+// Un solo lugar calcula estas listas — así el número que ves en el semáforo
+// y lo que se abre al hacer click en la razón son siempre exactamente lo mismo.
+function estadoNegocioSets(){
   const en2dias = new Date(Date.now() + 2*86400000);
-  const bloqueos = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'bloqueo');
-  const decisiones = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'decision_direccion');
-  const incidenciasAbiertas = pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'incidencia');
-  const pagosVencidos = payments.filter(p => p.estado === 'Atrasada');
-  const pagosPorVencerPronto = payments.filter(p => p.estado === 'Por vencer' && p.vence && p.vence <= en2dias);
-  const hotSinResponder = leads.filter(l => l.temperatura === 'HOT' && l.estado === 'MENSAJE DEL LEAD SIN RESPONDER');
-  const altoValorSinResponsable = leads.filter(l => ['HOT','CLIENTE'].includes(l.temperatura) && !l.responsable_id);
-  const integracionesEnError = integrationLogs.filter(i => i.estado === 'error');
-  const seguimientosAtrasados = leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO');
-
+  return {
+    bloqueos: pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'bloqueo'),
+    decisiones: pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'decision_direccion'),
+    incidenciasAbiertas: pendientesCriticos.filter(p => p.estado === 'abierto' && p.tipo === 'incidencia'),
+    pagosVencidos: payments.filter(p => p.estado === 'Atrasada'),
+    pagosPorVencerPronto: payments.filter(p => p.estado === 'Por vencer' && p.vence && p.vence <= en2dias),
+    hotSinResponder: leads.filter(l => l.temperatura === 'HOT' && l.estado === 'MENSAJE DEL LEAD SIN RESPONDER'),
+    altoValorSinResponsable: leads.filter(l => ['HOT','CLIENTE'].includes(l.temperatura) && !l.responsable_id),
+    integracionesEnError: integrationLogs.filter(i => i.estado === 'error'),
+    seguimientosAtrasados: leads.filter(l => l.estado === 'SEGUIMIENTO ATRASADO'),
+  };
+}
+function estadoNegocioHoy(){
+  const s = estadoNegocioSets();
   const razonesRojo = [];
-  if (bloqueos.length) razonesRojo.push(`${bloqueos.length} bloqueo(s) activo(s)`);
-  if (decisiones.length) razonesRojo.push(`${decisiones.length} decisión(es) esperando tu aprobación`);
-  if (pagosVencidos.length) razonesRojo.push(`${pagosVencidos.length} cuota(s) atrasada(s)`);
-  if (hotSinResponder.length) razonesRojo.push(`${hotSinResponder.length} lead(s) caliente(s) sin responder`);
-  if (altoValorSinResponsable.length) razonesRojo.push(`${altoValorSinResponsable.length} lead(s) de alto valor sin responsable`);
-  if (integracionesEnError.length) razonesRojo.push(`${integracionesEnError.length} integración(es) caída(s)`);
+  if (s.bloqueos.length) razonesRojo.push({key:'bloqueos', txt:`${s.bloqueos.length} bloqueo(s) activo(s)`});
+  if (s.decisiones.length) razonesRojo.push({key:'decisiones', txt:`${s.decisiones.length} decisión(es) esperando tu aprobación`});
+  if (s.pagosVencidos.length) razonesRojo.push({key:'pagosVencidos', txt:`${s.pagosVencidos.length} cuota(s) atrasada(s)`});
+  if (s.hotSinResponder.length) razonesRojo.push({key:'hotSinResponder', txt:`${s.hotSinResponder.length} lead(s) caliente(s) sin responder`});
+  if (s.altoValorSinResponsable.length) razonesRojo.push({key:'altoValorSinResponsable', txt:`${s.altoValorSinResponsable.length} lead(s) de alto valor sin responsable`});
+  if (s.integracionesEnError.length) razonesRojo.push({key:'integracionesEnError', txt:`${s.integracionesEnError.length} integración(es) caída(s)`});
 
   const razonesAmarillo = [];
-  if (seguimientosAtrasados.length) razonesAmarillo.push(`${seguimientosAtrasados.length} seguimiento(s) atrasado(s)`);
-  if (pagosPorVencerPronto.length) razonesAmarillo.push(`${pagosPorVencerPronto.length} cuota(s) por vencer en 48h`);
-  if (incidenciasAbiertas.length) razonesAmarillo.push(`${incidenciasAbiertas.length} incidencia(s) en seguimiento`);
+  if (s.seguimientosAtrasados.length) razonesAmarillo.push({key:'seguimientosAtrasados', txt:`${s.seguimientosAtrasados.length} seguimiento(s) atrasado(s)`});
+  if (s.pagosPorVencerPronto.length) razonesAmarillo.push({key:'pagosPorVencerPronto', txt:`${s.pagosPorVencerPronto.length} cuota(s) por vencer en 48h`});
+  if (s.incidenciasAbiertas.length) razonesAmarillo.push({key:'incidenciasAbiertas', txt:`${s.incidenciasAbiertas.length} incidencia(s) en seguimiento`});
 
   let color = 'VERDE', razones = [];
   if (razonesRojo.length) { color = 'ROJO'; razones = razonesRojo; }
@@ -844,8 +855,44 @@ function renderEstadoBanner(){
   el.className = `estado-banner ${color.toLowerCase()}`;
   el.innerHTML = `<div class="estado-top"><span class="estado-dot">${cfg.emoji}</span><span class="estado-label">ESTADO DEL NEGOCIO HOY: ${color}</span></div>
     <div class="estado-sub">${cfg.txt}</div>
-    ${razones.length ? `<ul class="estado-razones">${razones.map(r=>`<li>${r}</li>`).join('')}</ul>` : ''}`;
+    ${razones.length ? `<ul class="estado-razones">${razones.map(r=>`<li class="estado-razon" onclick="openEstadoRazonDrill('${r.key}')">${r.txt} — ver detalle →</li>`).join('')}</ul>` : ''}`;
 }
+// Click en cualquier razón del semáforo abre directo la lista de personas/
+// pendientes detrás de esa razón — para no tener que adivinar dónde mirar.
+window.openEstadoRazonDrill = function(key){
+  const s = estadoNegocioSets();
+  const labels = {
+    bloqueos: 'Bloqueos activos', decisiones: 'Decisiones esperando tu aprobación',
+    pagosVencidos: 'Cuotas atrasadas', hotSinResponder: 'Leads calientes sin responder',
+    altoValorSinResponsable: 'Leads de alto valor sin responsable', integracionesEnError: 'Integraciones caídas',
+    seguimientosAtrasados: 'Seguimientos atrasados', pagosPorVencerPronto: 'Cuotas por vencer en 48h',
+    incidenciasAbiertas: 'Incidencias en seguimiento',
+  };
+  const label = labels[key] || key;
+  if (key === 'integracionesEnError') {
+    const rows = s.integracionesEnError;
+    document.getElementById('drillTitle').textContent = label;
+    document.getElementById('drillSub').textContent = `${rows.length} integración(es) en error`;
+    document.getElementById('drillBody').innerHTML = rows.length ? rows.map(i => `<tr><td>${i.integracion}</td><td>—</td><td>error</td><td>—</td><td>${i.mensaje||'—'}</td><td>—</td></tr>`).join('') : '<tr><td colspan="6">Sin incidencias.</td></tr>';
+    document.getElementById('drillOverlay').classList.add('open');
+    return;
+  }
+  let list;
+  if (['bloqueos','decisiones','incidenciasAbiertas'].includes(key)) {
+    list = s[key].map(p => ({ id: p.lead_id, nombre: p.titulo, origen: p.tipo, estado: p.estado, responsable: p.responsable||'sin asignar', producto: p.accion_requerida, monto: null }));
+  } else if (key === 'pagosVencidos' || key === 'pagosPorVencerPronto') {
+    list = s[key].map(p => ({ id: p.lead_id, nombre: p.cliente, origen: null, estado: p.estado, responsable: p.responsable, producto: p.producto, monto: p.monto }));
+  } else {
+    list = s[key] || [];
+  }
+  document.getElementById('drillTitle').textContent = label;
+  document.getElementById('drillSub').textContent = `${list.length} registros`;
+  document.getElementById('drillBody').innerHTML = list.length ? list.map(l => `
+    <tr ${l.id ? `onclick="document.getElementById('drillOverlay').classList.remove('open'); openModal('${l.id}')" style="cursor:pointer;"` : ''}>
+      <td>${l.nombre||'—'}</td><td>${l.origen||'—'}</td><td>${l.estado||'—'}</td><td>${l.responsable||'—'}</td><td>${l.producto||'—'}</td><td>${l.monto?'$'+l.monto:'—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" style="color:#8A6E5A;font-size:12px;padding:10px;">Sin registros en este momento.</td></tr>';
+  document.getElementById('drillOverlay').classList.add('open');
+};
 
 // ---------- PANEL "ME PUEDO DESCONECTAR" (Parte 22) ----------
 function desconexionSets(){
@@ -1091,8 +1138,11 @@ function populateStaticSelects(){
   document.getElementById('fEstadoSuccess').innerHTML = '<option value="">Estado success: todos</option>' + SUCCESS_ESTADOS.map(e => `<option>${e}</option>`).join('');
   document.getElementById('nlOrigen').innerHTML = ORIGENS.map(o => `<option>${o}</option>`).join('');
   document.getElementById('nlCanal').innerHTML = CANALES.map(c => `<option>${c}</option>`).join('');
-  document.getElementById('nlResponsable').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
-  document.getElementById('ncCloser').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
+  // Regla de negocio de Paula: todo lead nuevo se asigna a Caro (setter) por
+  // defecto hasta que se agenda llamada; la llamada en sí se agenda al closer
+  // (hoy Ileane) por defecto. Ambos siguen siendo editables a mano.
+  document.getElementById('nlResponsable').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}" ${u.nombre==='Caro Pache'?'selected':''}>${u.nombre}</option>`).join('');
+  document.getElementById('ncCloser').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}" ${u.nombre==='Ileane'?'selected':''}>${u.nombre}</option>`).join('');
 }
 function populateLeadPicker(){
   const opciones = leads.filter(l => l.temperatura !== "CLIENTE").map(l => `<option value="${l.id}">${l.nombre}</option>`).join('');
@@ -1383,8 +1433,10 @@ document.getElementById('btnSyncCalendly').addEventListener('click', async () =>
       if (existing.length) {
         leadId = existing[0].id;
       } else {
-        const created = await sql(`insert into leads (nombre, email, origen, estado, temperatura, proxima_accion)
-          values ('${esc(nombre)}', '${esc(email)}', 'CALENDLY', 'LLAMADA AGENDADA', 'WARM', 'Llamada agendada vía Calendly')
+        // Regla de Paula: todo lead nuevo se asigna a Caro (setter) por defecto.
+        const caroId = (USERS.find(u => u.nombre === 'Caro Pache') || {}).id;
+        const created = await sql(`insert into leads (nombre, email, origen, estado, temperatura, proxima_accion, responsable_id)
+          values ('${esc(nombre)}', '${esc(email)}', 'CALENDLY', 'LLAMADA AGENDADA', 'WARM', 'Llamada agendada vía Calendly', ${caroId ? `'${esc(caroId)}'` : 'null'})
           returning id;`);
         leadId = created[0] && created[0].id;
         if (leadId) creados++;
@@ -1395,7 +1447,10 @@ document.getElementById('btnSyncCalendly').addEventListener('click', async () =>
       const estadoCall = ev.status === 'canceled' ? 'CANCELADA' : (new Date(ev.start_time) < new Date() ? 'LLAMADA REALIZADA' : 'LLAMADA AGENDADA');
       const existingCall = await sql(`select id from calls where lead_id='${esc(leadId)}' and fecha='${fechaISO}';`);
       if (!existingCall.length) {
-        await sql(`insert into calls (lead_id, fecha, hora, estado) values ('${esc(leadId)}', '${fechaISO}', '${esc(horaTxt)}', '${esc(estadoCall)}');`);
+        // La llamada se agenda por defecto al closer (hoy Ileane); Caro sigue
+        // siendo la responsable del lead (ella confirma la asistencia).
+        const ileaneId = (USERS.find(u => u.nombre === 'Ileane') || {}).id;
+        await sql(`insert into calls (lead_id, fecha, hora, closer_id, estado) values ('${esc(leadId)}', '${fechaISO}', '${esc(horaTxt)}', ${ileaneId ? `'${esc(ileaneId)}'` : 'null'}, '${esc(estadoCall)}');`);
         await sql(`update leads set estado='${esc(estadoCall)}', fecha_proxima_accion='${fechaISO}' where id='${esc(leadId)}' and estado not in ('CLIENTE');`);
         await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(leadId)}', 'Evento de Calendly: ${esc(ev.name||'reunión')} — ${fechaISO} ${esc(horaTxt)}', 'llamada');`);
         llamadasNuevas++;
