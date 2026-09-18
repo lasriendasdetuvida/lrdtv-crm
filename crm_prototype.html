@@ -617,7 +617,7 @@ async function loadLeads(){
   const rows = await sql(`
     select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.canal, l.campana, l.edad_hijo, l.motivo,
       l.estado, l.temperatura, l.responsable_id, u.nombre as responsable, l.producto_id, p.nombre as producto,
-      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion
+      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion, l.manychat_id
     from leads l
     left join users u on u.id = l.responsable_id
     left join products p on p.id = l.producto_id
