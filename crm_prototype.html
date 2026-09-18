@@ -547,6 +547,24 @@
         <div id="funnelBars"></div>
       </div>
 
+      <div id="funnelPersonalizadoSection" style="display:none">
+        <div class="section-title">Resumen de funnel por rango de fechas</div>
+        <div class="chart-card" style="height:auto;padding:18px 20px;">
+          <div style="font-size:11.5px;color:#8A6E5A;margin-bottom:10px;">
+            Calcula el mismo tipo de funnel que ves arriba pero para un rango de fechas fijo (no rodante) — ej. "1 ago al 18 sep" —
+            usando el gasto de Meta Ads cargado y las llamadas reales registradas en ese rango exacto (no los leads creados en la ventana).
+          </div>
+          <div class="filters" style="margin-bottom:10px">
+            <label style="font-size:11.5px;color:#5B3A29;align-self:center">Desde</label>
+            <input type="date" id="fpDesde" class="fi" style="width:auto" />
+            <label style="font-size:11.5px;color:#5B3A29;align-self:center">Hasta</label>
+            <input type="date" id="fpHasta" class="fi" style="width:auto" />
+            <button class="btn-primary" id="btnCalcularFunnelPersonalizado">Calcular</button>
+          </div>
+          <div id="funnelPersonalizadoResultado"></div>
+        </div>
+      </div>
+
       <div class="section-title">Por fuente / keyword</div>
       <table class="leads">
         <thead><tr><th>Fuente</th><th>Entradas</th><th>WhatsApp</th><th>MQB</th><th>Bookings</th><th>Shows</th><th>Sales</th><th>Revenue</th></tr></thead>
@@ -2336,6 +2354,55 @@ document.getElementById('btnSyncMetaAds').addEventListener('click', async () => 
     btn.textContent = original; btn.disabled = false;
   }
 });
+// ---------- FUNNEL POR RANGO DE FECHAS FIJO (no rodante) ----------
+// A diferencia del Success Tracker de arriba (que filtra leads por fecha de
+// creación + estado actual, en ventanas rodantes de 1/7/30 días desde hoy),
+// esto calcula directo contra fechas reales de eventos (calls.fecha,
+// sales.fecha_venta, manual_metric_entries.fecha) para un rango fijo que Paula
+// elige a mano — así se puede responder "¿cómo nos fue del 1 ago al 18 sep?"
+// aunque esa ventana ya no sea "los últimos 30 días".
+document.getElementById('btnCalcularFunnelPersonalizado').addEventListener('click', async () => {
+  const desde = document.getElementById('fpDesde').value;
+  const hasta = document.getElementById('fpHasta').value;
+  const out = document.getElementById('funnelPersonalizadoResultado');
+  if (!desde || !hasta) { alert('Elige fecha de inicio y fecha de fin.'); return; }
+  out.innerHTML = '<div class="loading-note">Calculando…</div>';
+  try {
+    const adSpendRows = await sql(`select coalesce(sum(valor),0) as total from manual_metric_entries where campo='ad_spend' and fecha >= '${esc(desde)}' and fecha <= '${esc(hasta)}';`);
+    const adSpend = toNum(adSpendRows[0] && adSpendRows[0].total);
+    const callsRows = await sql(`select estado from calls where fecha >= '${esc(desde)}' and fecha <= '${esc(hasta)}';`);
+    const bookings = callsRows.length;
+    const confirmadas = callsRows.filter(c => c.estado !== 'CANCELADA').length;
+    const shows = callsRows.filter(c => c.estado === 'LLAMADA REALIZADA').length;
+    const salesRows = await sql(`select monto_total from sales where fecha_venta >= '${esc(desde)}' and fecha_venta <= '${esc(hasta)} 23:59:59';`);
+    const salesN = salesRows.length;
+    const revenue = salesRows.reduce((s,r) => s + toNum(r.monto_total), 0);
+    const costoPorBooking = bookings ? adSpend/bookings : 0;
+    const tasaConfirmado = bookings ? (confirmadas/bookings*100) : 0;
+    const tasaShow = confirmadas ? (shows/confirmadas*100) : 0;
+    const tasaCierre = shows ? (salesN/shows*100) : 0;
+    const money = v => "$" + Math.round(v).toLocaleString('es-CL');
+    out.innerHTML = `
+      <div class="tracker-kpi-grid">
+        <div class="t-kpi"><div class="lbl">Ad Spend del rango</div><div class="val">${money(adSpend)}</div></div>
+        <div class="t-kpi"><div class="lbl">Bookings (llamadas agendadas)</div><div class="val">${bookings}</div></div>
+        <div class="t-kpi"><div class="lbl">Costo por booking</div><div class="val">${money(costoPorBooking)}</div></div>
+        <div class="t-kpi"><div class="lbl">% no canceladas ("confirmado")</div><div class="val">${tasaConfirmado.toFixed(0)}% (${confirmadas} de ${bookings})</div></div>
+        <div class="t-kpi"><div class="lbl">% Show up (de no canceladas)</div><div class="val">${tasaShow.toFixed(0)}% (${shows} de ${confirmadas})</div></div>
+        <div class="t-kpi"><div class="lbl">% Cierre (sobre shows)</div><div class="val">${tasaCierre.toFixed(0)}% (${salesN} de ${shows})</div></div>
+        <div class="t-kpi"><div class="lbl">Revenue cerrado</div><div class="val">${money(revenue)}</div></div>
+      </div>
+      <div style="font-size:11px;color:#8A6E5A;margin-top:10px">
+        "Confirmado" acá es una aproximación (llamada agendada que no fue cancelada) — el CRM todavía no registra una confirmación explícita
+        separada de la reserva (ej. respondió "sí, ahí estaré" al recordatorio). Si quieres esa distinción exacta, hay que agregar ese
+        campo cuando se confirma por WhatsApp. Los bookings y shows salen de la tabla de Llamadas (sincronizada con Calendly); si Liz u otra
+        persona agenda diagnósticos desde un Calendly distinto al conectado acá, esos no se cuentan todavía — hay que conectar también esa cuenta.
+      </div>`;
+  } catch(e) {
+    console.error(e);
+    out.innerHTML = '<div class="loading-note">Error calculando — revisa la consola.</div>';
+  }
+});
 document.getElementById('closeNewCall').onclick = () => document.getElementById('newCallOverlay').classList.remove('open');
 document.getElementById('newCallOverlay').addEventListener('click', e => { if (e.target.id==='newCallOverlay') e.currentTarget.classList.remove('open'); });
 document.getElementById('btnSaveNewCall').addEventListener('click', async () => {
@@ -2501,6 +2568,8 @@ async function renderTracker(){
   const kpiDefsVisibles = trackerEsFull ? KPI_DEFS : KPI_DEFS.filter(d => !KPI_SOLO_FULL.has(d.key));
   const trackerBanner = document.getElementById('trackerRestrictedNote');
   if (trackerBanner) trackerBanner.style.display = trackerEsFull ? 'none' : 'block';
+  const fpSection = document.getElementById('funnelPersonalizadoSection');
+  if (fpSection) fpSection.style.display = trackerEsFull ? '' : 'none';
   document.getElementById('trackerKpis').innerHTML = kpiDefsVisibles.map(d => {
     const val = kpis[d.key]; const prevVal = prevKpis[d.key];
     let cmpHtml = '';
