@@ -129,6 +129,8 @@
   .pill.warm { background: #FCEBC8; color: #B8790B; }
   .pill.cold { background: #E4EEF5; color: #3B6A8C; }
   .pill.cliente { background: #DDEFDD; color: #2E7D32; }
+  .pill.green { background: #DDEFDD; color: #2E7D32; }
+  .pill.orange { background: #FCEBC8; color: #B8790B; }
   .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .filters select, .filters input {
     border: 1px solid #EADFD3; border-radius: 6px; padding: 6px 9px; font-size: 12px; background: white; color: #3A2E28;
@@ -699,7 +701,7 @@ async function loadConversaciones(){
 async function loadCalls(){
   const rows = await sql(`
     select c.id, c.lead_id, l.nombre as lead_nombre, c.fecha, c.hora, c.closer_id, u.nombre as closer, c.estado, c.resultado,
-      c.setter_id, us.nombre as setter, c.monto_cerrado
+      c.setter_id, us.nombre as setter, c.monto_cerrado, c.estado_pago
     from calls c
     join leads l on l.id = c.lead_id
     left join users u on u.id = c.closer_id
@@ -1699,15 +1701,35 @@ window.updateCallComision = async function(id, field, value){
   if (document.getElementById('view-llamadas').classList.contains('active')) renderCalls();
 };
 
-function filaComision(c, pct, montoVisible){
-  const monto = c.monto_cerrado || 0;
-  const comision = c.resultado === 'Cerró' ? Math.round(monto * pct) / 100 : 0;
+function comisionDe(c, pct){
+  return c.resultado === 'Cerró' ? Math.round((c.monto_cerrado||0) * pct) / 100 : 0;
+}
+function mesKey(fecha){
+  if (!fecha) return 'sin-fecha';
+  return `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}`;
+}
+function mesLabel(fecha){
+  if (!fecha) return 'Sin fecha';
+  const s = fecha.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// El "estado" de la comisión (Pendiente/Pagada) es el check de fin de mes —
+// solo Paula, Marie o Juan lo marcan como pagado. Caro e Ileane lo ven como
+// referencia (para saber qué ya se les liquidó) pero no lo pueden cambiar.
+function filaComision(c, pct, montoVisible, puedeMarcarPago){
+  const comision = comisionDe(c, pct);
+  const pagada = c.estado_pago === 'Pagada';
   return `<tr>
     <td>${c.lead_nombre}</td>
     <td>${fmtDateOnly(c.fecha)}</td>
     <td><select class="fi" onchange="updateCallComision('${c.id}','resultado',this.value)">${["Pendiente","Cerró","Seguimiento","No ahora"].map(r=>`<option ${r===(c.resultado||'Pendiente')?'selected':''}>${r}</option>`).join('')}</select></td>
     <td><input class="fi" type="number" style="width:100px" value="${c.monto_cerrado ?? ''}" placeholder="Monto" onchange="updateCallComision('${c.id}','monto_cerrado',this.value)" /></td>
     ${montoVisible ? `<td>$${comision.toLocaleString('es-CL')} <span style="color:#8A6E5A;font-size:10.5px">(${pct}%)</span></td>` : ''}
+    ${montoVisible ? `<td>${puedeMarcarPago
+        ? `<select class="fi" onchange="updateCallComision('${c.id}','estado_pago',this.value)">${["Pendiente","Pagada"].map(e=>`<option ${e===(c.estado_pago||'Pendiente')?'selected':''}>${e}</option>`).join('')}</select>`
+        : `<span class="pill ${pagada?'green':'orange'}">${c.estado_pago||'Pendiente'}</span>`
+      }</td>` : ''}
   </tr>`;
 }
 
@@ -1722,21 +1744,36 @@ function renderComisiones(){
 
   const llamadasDeCaro = calls.filter(c => c.setter_id === caroId);
   const llamadasDeIleane = calls.filter(c => c.closer_id === ileaneId);
-  const totalCaro = llamadasDeCaro.filter(c => c.resultado === 'Cerró').reduce((s,c) => s + Math.round((c.monto_cerrado||0) * COMISION_SETTER_PCT) / 100, 0);
-  const totalIleane = llamadasDeIleane.filter(c => c.resultado === 'Cerró').reduce((s,c) => s + Math.round((c.monto_cerrado||0) * COMISION_CLOSER_PCT) / 100, 0);
+  const totalCaro = llamadasDeCaro.reduce((s,c) => s + comisionDe(c, COMISION_SETTER_PCT), 0);
+  const totalIleane = llamadasDeIleane.reduce((s,c) => s + comisionDe(c, COMISION_CLOSER_PCT), 0);
 
   banner.textContent = esFull
-    ? 'Vista completa: acá ves ambos lados y el total combinado a pagar. Caro y Ileane, cuando entran, solo ven su propia sección — nunca la de la otra.'
-    : 'Anota acá el resultado real de tus llamadas (Cerró / Pendiente / Seguimiento / No ahora) y el monto cuando cierres. Con eso se calcula tu comisión para el pago de fin de mes.';
+    ? 'Vista completa: acá ves ambos lados, el estado de pago de cada comisión y el total combinado. Caro y Ileane, cuando entran, solo ven su propia sección — nunca la de la otra.'
+    : 'Anota acá el resultado real de tus llamadas (Cerró / Pendiente / Seguimiento / No ahora) y el monto cuando cierres. El estado de pago lo marca Paula cuando liquida el mes.';
 
-  const tabla = (titulo, lista, pct, mostrarComision, totalLabel, total) => `
-    <div class="section-title" style="margin-top:18px">${titulo}</div>
-    <table class="leads">
-      <thead><tr><th>Lead</th><th>Fecha</th><th>Resultado</th><th>Monto cerrado</th>${mostrarComision ? '<th>Comisión</th>' : ''}</tr></thead>
-      <tbody>${lista.length ? lista.map(c => filaComision(c, pct, mostrarComision)).join('') : '<tr><td colspan="5" class="loading-note">Sin llamadas todavía.</td></tr>'}</tbody>
-    </table>
-    ${mostrarComision ? `<div style="text-align:right;font-weight:700;margin-top:6px;color:#3A2E28">${totalLabel}: $${total.toLocaleString('es-CL')}</div>` : ''}
-  `;
+  // Agrupado por mes, con subtotal de comisión al final de cada mes — así se
+  // arma el cierre de fin de mes de un vistazo, sin tener que sumar a mano.
+  const tabla = (titulo, lista, pct, mostrarComision, totalLabel, total) => {
+    const porMes = {};
+    lista.forEach(c => { const k = mesKey(c.fecha); (porMes[k] = porMes[k] || []).push(c); });
+    const meses = Object.keys(porMes).sort();
+    const colspan = mostrarComision ? 6 : 4;
+    const filasHtml = meses.length ? meses.map(k => {
+      const filas = porMes[k];
+      const subtotal = filas.reduce((s,c) => s + comisionDe(c, pct), 0);
+      return `<tr><td colspan="${colspan}" style="background:#FBF6F0;font-weight:700;font-size:11.5px;color:#8A6E5A;text-transform:uppercase">${mesLabel(filas[0].fecha)}</td></tr>`
+        + filas.map(c => filaComision(c, pct, mostrarComision, esFull)).join('')
+        + (mostrarComision ? `<tr><td colspan="${colspan-1}" style="text-align:right;font-weight:700">Subtotal ${mesLabel(filas[0].fecha)}</td><td style="font-weight:700">$${subtotal.toLocaleString('es-CL')}</td></tr>` : '');
+    }).join('') : `<tr><td colspan="${colspan}" class="loading-note">Sin llamadas todavía.</td></tr>`;
+    return `
+      <div class="section-title" style="margin-top:18px">${titulo}</div>
+      <table class="leads">
+        <thead><tr><th>Lead</th><th>Fecha</th><th>Resultado</th><th>Monto cerrado</th>${mostrarComision ? '<th>Comisión</th><th>Estado</th>' : ''}</tr></thead>
+        <tbody>${filasHtml}</tbody>
+      </table>
+      ${mostrarComision ? `<div style="text-align:right;font-weight:700;margin-top:6px;color:#3A2E28">${totalLabel}: $${total.toLocaleString('es-CL')}</div>` : ''}
+    `;
+  };
 
   if (esFull) {
     body.innerHTML = tabla('Caro — llamadas agendadas por ella (comisión 5% si cierran)', llamadasDeCaro, COMISION_SETTER_PCT, true, 'Total comisión Caro', totalCaro)
