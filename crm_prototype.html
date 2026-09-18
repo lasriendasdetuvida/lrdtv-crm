@@ -1,0 +1,1488 @@
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #F7F3EF; color: #3A2E28;
+  }
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 200px; background: #5B3A29; color: #F3E9DE; flex-shrink: 0;
+    padding: 20px 14px; position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar h1 { font-size: 15px; margin: 0 0 4px; font-weight: 700; }
+  .sidebar .sub { font-size: 11px; color: #D8C8BC; margin-bottom: 22px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; margin-bottom: 3px; color: #F3E9DE; transition: background .15s;
+  }
+  .nav-item:hover { background: #6F4B37; }
+  .nav-item.active { background: #8A6E5A; font-weight: 600; }
+  .nav-badge {
+    margin-left: auto; background: #C0392B; color: white; font-size: 10px; font-weight: 700;
+    border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center;
+  }
+  .main { flex: 1; padding: 22px 26px; overflow-x: hidden; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .topbar h2 { margin: 0; font-size: 19px; color: #5B3A29; }
+  .topbar .date { font-size: 12px; color: #8A6E5A; }
+  .demo-banner {
+    background: #FCEFD8; border: 1px solid #E8C27A; color: #7A5A1E; font-size: 12px;
+    padding: 8px 12px; border-radius: 8px; margin-bottom: 18px;
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px,1fr)); gap: 10px; margin-bottom: 22px; }
+  .kpi-card {
+    background: white; border: 1px solid #EADFD3; border-radius: 10px; padding: 12px 14px; cursor: pointer;
+    transition: box-shadow .15s, transform .15s;
+  }
+  .kpi-card:hover { box-shadow: 0 3px 10px rgba(91,58,41,.12); transform: translateY(-1px); }
+  .kpi-card .num { font-size: 24px; font-weight: 800; color: #5B3A29; line-height: 1; }
+  .kpi-card .label { font-size: 11px; color: #8A6E5A; margin-top: 5px; }
+  .kpi-card.alert .num { color: #C0392B; }
+  .kpi-card.hot .num { color: #D6690B; }
+  .kpi-card.good .num { color: #2E7D32; }
+
+  .section-title { font-size: 14px; font-weight: 700; color: #5B3A29; margin: 24px 0 10px; }
+
+  .priority-list { display: flex; flex-direction: column; gap: 8px; }
+  .priority-row {
+    background: white; border: 1px solid #EADFD3; border-left: 4px solid #8A6E5A; border-radius: 8px;
+    padding: 10px 14px; display: flex; align-items: center; gap: 12px; font-size: 13px;
+  }
+  .priority-row.urgent { border-left-color: #C0392B; }
+  .priority-row.now { border-left-color: #D6690B; }
+  .priority-row .tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 10px;
+    background: #EFE6DC; color: #5B3A29; white-space: nowrap;
+  }
+  .priority-row.urgent .tag { background: #FBE4E1; color: #C0392B; }
+  .priority-row.now .tag { background: #FCE9D8; color: #D6690B; }
+  .priority-row .count { font-weight: 800; color: #5B3A29; }
+  .priority-row .txt { flex: 1; }
+  .priority-row button {
+    border: none; background: #5B3A29; color: white; font-size: 11px; padding: 6px 12px; border-radius: 6px;
+    cursor: pointer;
+  }
+  .priority-row button:hover { background: #74513C; }
+
+  table.leads { width: 100%; border-collapse: collapse; font-size: 12.5px; background: white; border-radius: 10px; overflow: hidden; }
+  table.leads th {
+    background: #5B3A29; color: #F3E9DE; text-align: left; padding: 9px 10px; font-weight: 600; font-size: 11.5px;
+    position: sticky; top: 0;
+  }
+  table.leads td { padding: 8px 10px; border-bottom: 1px solid #F0E8DE; }
+  table.leads tr:hover td { background: #FBF6F0; cursor: pointer; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; display: inline-block; }
+  .pill.hot { background: #FCE0D3; color: #C0392B; }
+  .pill.warm { background: #FCEBC8; color: #B8790B; }
+  .pill.cold { background: #E4EEF5; color: #3B6A8C; }
+  .pill.cliente { background: #DDEFDD; color: #2E7D32; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters select, .filters input {
+    border: 1px solid #EADFD3; border-radius: 6px; padding: 6px 9px; font-size: 12px; background: white; color: #3A2E28;
+  }
+
+  .origin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 12px; }
+  .origin-card { background: white; border: 1px solid #EADFD3; border-radius: 10px; padding: 14px; }
+  .origin-card h4 { margin: 0 0 8px; font-size: 13px; color: #5B3A29; }
+  .origin-card .row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; color: #6B5B4E; }
+  .origin-card .row b { color: #3A2E28; }
+  .origin-card .conv { margin-top: 8px; font-size: 11.5px; color: #8A6E5A; }
+
+  .charts-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-top: 6px; }
+  .chart-card { background: white; border: 1px solid #EADFD3; border-radius: 10px; padding: 14px; height: 300px; }
+  .chart-card h4 { margin: 0 0 8px; font-size: 13px; color: #5B3A29; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(58,46,40,.45); z-index: 50;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: 12px; width: 560px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+    padding: 22px 24px;
+  }
+  .modal h3 { margin: 0 0 2px; color: #5B3A29; }
+  .modal .sub { font-size: 12px; color: #8A6E5A; margin-bottom: 14px; }
+  .modal .close-x { float: right; cursor: pointer; font-size: 18px; color: #8A6E5A; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 12.5px; margin-bottom: 14px; }
+  .field-grid .k { color: #8A6E5A; }
+  .field-grid .v { color: #3A2E28; font-weight: 600; }
+  .timeline { border-left: 2px solid #EADFD3; padding-left: 14px; margin-top: 6px; }
+  .timeline .t-item { position: relative; padding-bottom: 12px; font-size: 12px; }
+  .timeline .t-item::before {
+    content: ""; position: absolute; left: -18.5px; top: 3px; width: 8px; height: 8px; border-radius: 50%;
+    background: #8A6E5A;
+  }
+  .timeline .t-date { color: #8A6E5A; font-size: 10.5px; }
+
+  .pipeline-cols { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+  .pipeline-col { min-width: 175px; background: #F0E8DE; border-radius: 10px; padding: 8px; flex-shrink: 0; }
+  .pipeline-col h5 { margin: 2px 4px 8px; font-size: 11.5px; color: #5B3A29; text-transform: uppercase; }
+  .pipeline-card {
+    background: white; border-radius: 8px; padding: 8px 9px; font-size: 11.5px; margin-bottom: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); cursor: pointer;
+  }
+  .pipeline-card .n { font-weight: 700; color: #3A2E28; }
+  .pipeline-card .m { color: #8A6E5A; font-size: 10.5px; }
+
+  .semaforo-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; }
+  .semaforo-dot.verde { background:#2E7D32; }
+  .semaforo-dot.amarillo { background:#E0A314; }
+  .semaforo-dot.rojo { background:#C0392B; }
+  .health-bar-track { background:#EFE6DC; border-radius:6px; height:7px; width:80px; display:inline-block; vertical-align:middle; overflow:hidden; }
+  .health-bar-fill { height:100%; border-radius:6px; }
+  .checklist-item { display:flex; align-items:center; gap:7px; font-size:12px; padding:3px 0; cursor:pointer; }
+  .checklist-item .box { width:14px; height:14px; border-radius:4px; border:1.5px solid #C7B6A6; flex-shrink:0; }
+  .checklist-item.done .box { background:#2E7D32; border-color:#2E7D32; }
+  .checklist-item.done { color:#8A6E5A; text-decoration:line-through; }
+  .health-reason { font-size:11.5px; padding:2px 0; color:#6B5B4E; }
+  .badge-mini { font-size:10px; padding:1px 7px; border-radius:8px; background:#EFE6DC; color:#5B3A29; margin-left:6px; }
+
+  .tracker-topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .seg-group { display:flex; background:#EFE6DC; border-radius:8px; padding:3px; gap:2px; }
+  .seg { font-size:11.5px; padding:6px 11px; border-radius:6px; cursor:pointer; color:#6B5B4E; white-space:nowrap; }
+  .seg.active { background:#5B3A29; color:white; font-weight:600; }
+  .btn-ghost, .btn-primary {
+    border:none; border-radius:8px; font-size:11.5px; padding:8px 12px; cursor:pointer; white-space:nowrap;
+  }
+  .btn-ghost { background:#F3E9DE; color:#5B3A29; }
+  .btn-primary { background:#5B3A29; color:white; }
+  .btn-ghost:hover { background:#EADFD3; }
+  .btn-primary:hover { background:#74513C; }
+
+  .tracker-kpi-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(175px,1fr)); gap:10px; margin-top:16px; }
+  .t-kpi { background:white; border:1px solid #EADFD3; border-radius:10px; padding:12px 14px; cursor:pointer; transition: box-shadow .15s; }
+  .t-kpi:hover { box-shadow: 0 3px 10px rgba(91,58,41,.12); }
+  .t-kpi .lbl { font-size:10.5px; color:#8A6E5A; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+  .t-kpi .qmark { color:#B7A594; font-size:11px; cursor:help; }
+  .t-kpi .val { font-size:21px; font-weight:800; color:#5B3A29; margin-top:4px; }
+  .t-kpi .cmp { font-size:10.5px; margin-top:3px; }
+  .t-kpi .cmp.up { color:#2E7D32; }
+  .t-kpi .cmp.down { color:#C0392B; }
+  .t-kpi .sub2 { font-size:10px; color:#B7A594; margin-top:2px; }
+
+  .recs-panel { background:white; border:1px solid #EADFD3; border-left:4px solid #5B3A29; border-radius:10px; padding:14px 16px; margin-top:12px; font-size:12.5px; }
+  .recs-panel h5 { margin:0 0 6px; color:#5B3A29; font-size:12.5px; }
+  .recs-panel ul { margin:4px 0 10px 18px; padding:0; }
+  .recs-panel li { margin-bottom:3px; }
+
+  .funnel-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .funnel-label { width:130px; font-size:12px; color:#5B3A29; font-weight:600; }
+  .funnel-track { flex:1; background:#F0E8DE; border-radius:6px; height:26px; position:relative; }
+  .funnel-fill { background:#8A6E5A; height:100%; border-radius:6px; display:flex; align-items:center; padding-left:10px; color:white; font-size:11.5px; font-weight:700; }
+  .funnel-conv { width:70px; font-size:11px; color:#8A6E5A; text-align:right; }
+
+  .dq-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap:10px; }
+  .dq-card { background:white; border:1px solid #EADFD3; border-radius:10px; padding:11px 13px; font-size:12px; }
+  .dq-card .name { font-weight:700; color:#5B3A29; display:flex; justify-content:space-between; }
+  .dq-card .sync { font-size:10.5px; color:#8A6E5A; margin-top:3px; }
+  .dq-issues { grid-column: 1 / -1; background:#FCEFD8; border:1px solid #E8C27A; border-radius:10px; padding:10px 14px; font-size:11.5px; color:#7A5A1E; }
+
+  .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; margin-bottom:20px; }
+  .cal-day { background:white; border:1px solid #EADFD3; border-radius:10px; padding:9px; min-height:150px; }
+  .cal-day.today { border-color:#8A6E5A; box-shadow:0 0 0 1px #8A6E5A inset; }
+  .cal-day-header { font-size:11px; font-weight:700; color:#5B3A29; text-transform:capitalize; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #F0E8DE; }
+  .cal-item { font-size:10.5px; padding:4px 6px; border-radius:6px; margin-bottom:5px; cursor:pointer; line-height:1.3; }
+  .cal-item .t { font-weight:700; display:block; }
+  .cal-item.call { background:#E4EEF5; color:#2B5578; }
+  .cal-item.follow { background:#FCEBC8; color:#8A5A0B; }
+  .cal-item.payment { background:#FBE4E1; color:#A43128; }
+  .cal-item.checkin { background:#DDEFDD; color:#2E7D32; }
+  .cal-empty { font-size:10.5px; color:#C7B6A6; }
+
+  .team-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap:10px; }
+  .team-card { background:white; border:1px solid #EADFD3; border-radius:10px; padding:12px 14px; }
+  .team-card h4 { margin:0 0 8px; font-size:13px; color:#5B3A29; }
+  .team-card .row { display:flex; justify-content:space-between; font-size:11.5px; padding:3px 0; color:#6B5B4E; }
+  .team-card .row b { color:#3A2E28; }
+  .team-card .row.warn b { color:#C0392B; }
+  .fi { padding:8px; border:1px solid #EADFD3; border-radius:6px; font-size:12.5px; width:100%; background:white; color:#3A2E28; }
+  .fi-label { font-size:10.5px; color:#8A6E5A; margin:8px 0 3px; }
+  .save-row { display:flex; gap:8px; margin-top:10px; }
+  .note-box { width:100%; min-height:50px; border:1px solid #EADFD3; border-radius:6px; padding:8px; font-size:12.5px; font-family:inherit; }
+  .loading-note { font-size:12px; color:#8A6E5A; padding:20px; text-align:center; }
+  .login-overlay {
+    position: fixed; inset: 0; background: #5B3A29; display: flex; align-items: center; justify-content: center;
+    z-index: 999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-box { background: white; border-radius: 14px; padding: 32px 28px; width: 300px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .login-box h2 { margin: 0 0 4px; color: #5B3A29; font-size: 18px; }
+  .login-box .sub { font-size: 12px; color: #8A6E5A; margin-bottom: 18px; }
+  .login-box label { font-size: 12px; color: #5B3A29; font-weight: 600; display: block; margin: 12px 0 4px; }
+  .login-box select, .login-box input {
+    width: 100%; padding: 9px 10px; border: 1px solid #DDD0C4; border-radius: 8px; font-size: 13px; box-sizing: border-box;
+  }
+  .login-box button {
+    width: 100%; margin-top: 18px; padding: 10px; border: none; border-radius: 8px; background: #5B3A29; color: white;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .login-box .err { color: #C0392B; font-size: 12px; margin-top: 8px; display: none; }
+  .user-badge { margin-top: auto; padding-top: 16px; border-top: 1px solid #6F4B37; font-size: 11px; color: #D8C8BC; }
+  .user-badge b { color: #F3E9DE; display: block; font-size: 12px; }
+  .user-badge a { color: #D8C8BC; cursor: pointer; text-decoration: underline; }
+</style>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>Las Riendas de tu Vida</h2>
+    <div class="sub">Centro de Control Comercial — identifícate para entrar</div>
+    <label>¿Quién eres?</label>
+    <select id="loginUser"></select>
+    <label>Tu contraseña</label>
+    <input type="password" id="loginPass" placeholder="••••••••">
+    <div class="err" id="loginErr">Clave incorrecta.</div>
+    <button id="btnLogin">Entrar</button>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none">
+  <div class="sidebar" style="display:flex; flex-direction:column;">
+    <h1>Las Riendas de tu Vida</h1>
+    <div class="sub">Centro de Control Comercial</div>
+    <div class="nav-item active" data-view="hoy">📋 Hoy</div>
+    <div class="nav-item" data-view="calendario">🗓️ Calendario</div>
+    <div class="nav-item" data-view="leads">👥 Leads</div>
+    <div class="nav-item" data-view="pipeline">🧭 Pipeline</div>
+    <div class="nav-item" data-view="origenes">📊 Orígenes</div>
+    <div class="nav-item" data-view="llamadas">📞 Llamadas</div>
+    <div class="nav-item" data-view="pagos">💳 Pagos</div>
+    <div class="nav-item" data-view="postventa">🌱 Post-venta</div>
+    <div class="nav-item" data-view="tracker">📈 Success Tracker</div>
+    <div class="user-badge" id="userBadge"></div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h2 id="viewTitle">Hoy</h2>
+      <div class="date" id="todayDate"></div>
+    </div>
+    <div class="demo-banner">
+      🟢 Conectado a la base de datos real (Supabase). ManyChat (Instagram + WhatsApp), Calendly, PayPal y Meta Ads ya están en vivo. Hotmart está construido pero falta activar la URL del webhook en Hotmart.
+    </div>
+
+    <!-- HOY -->
+    <div class="view active" id="view-hoy">
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="section-title">Qué tengo que hacer hoy</div>
+      <div class="priority-list" id="priorityList"></div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="view" id="view-calendario">
+      <div class="demo-banner">
+        Muestra llamadas agendadas, seguimientos, cuotas por vencer y check-ins de los próximos 7 días — sacado de los mismos datos de Leads / Llamadas / Pagos / Post-venta, no es una agenda aparte.
+      </div>
+      <div class="filters">
+        <select id="fCalResp"><option value="">Responsable: todos</option></select>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="section-title">Pendientes por persona (no atados a un día específico)</div>
+      <div class="team-grid" id="teamPending"></div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="view" id="view-leads">
+      <div class="demo-banner" id="leadsEmptyBanner" style="display:none">
+        Todavía no hay leads cargados en la base real. Usa "+ Nuevo lead" para agregar el primero.
+      </div>
+      <div class="filters">
+        <input id="searchBox" placeholder="Buscar nombre, teléfono, Instagram..." style="width:220px" />
+        <select id="fEstado"><option value="">Estado: todos</option></select>
+        <select id="fTemp"><option value="">Temperatura: todas</option><option>HOT</option><option>WARM</option><option>COLD</option><option>CLIENTE</option></select>
+        <select id="fOrigen"><option value="">Origen: todos</option></select>
+        <select id="fResp"><option value="">Responsable: todos</option></select>
+        <button class="btn-primary" id="btnNewLead" style="margin-left:auto">+ Nuevo lead</button>
+      </div>
+      <table class="leads">
+        <thead><tr>
+          <th>Nombre</th><th>Origen</th><th>Edad hijo</th><th>Motivo</th><th>Estado</th><th>Temp</th>
+          <th>Responsable</th><th>Última interacción</th><th>Próxima acción</th>
+        </tr></thead>
+        <tbody id="leadsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- PIPELINE -->
+    <div class="view" id="view-pipeline">
+      <div class="pipeline-cols" id="pipelineCols"></div>
+    </div>
+
+    <!-- ORIGENES -->
+    <div class="view" id="view-origenes">
+      <div class="origin-grid" id="originGrid"></div>
+      <div class="section-title">Embudo general</div>
+      <div class="chart-card" style="height:280px"><canvas id="funnelChart"></canvas></div>
+    </div>
+
+    <!-- LLAMADAS -->
+    <div class="view" id="view-llamadas">
+      <div class="kpi-grid" id="callKpis"></div>
+      <div class="filters">
+        <button class="btn-ghost" id="btnSyncCalendly">🔄 Sincronizar Calendly</button>
+        <button class="btn-primary" id="btnNewCall" style="margin-left:auto">+ Agendar llamada</button>
+      </div>
+      <table class="leads">
+        <thead><tr><th>Lead</th><th>Fecha</th><th>Hora</th><th>Closer</th><th>Estado</th><th>Resultado</th></tr></thead>
+        <tbody id="callsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- PAGOS -->
+    <div class="view" id="view-pagos">
+      <div class="kpi-grid" id="paymentKpis"></div>
+      <div class="section-title">Pagos en cuotas</div>
+      <table class="leads">
+        <thead><tr><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead>
+        <tbody id="paymentsCuotasBody"></tbody>
+      </table>
+      <div class="section-title">Pagos completos (pago único)</div>
+      <table class="leads">
+        <thead><tr><th>Cliente</th><th>Producto</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead>
+        <tbody id="paymentsCompletoBody"></tbody>
+      </table>
+    </div>
+
+    <!-- POST-VENTA (seguimiento de clientes ya comprados: onboarding, salud, riesgo, testimonios) -->
+    <div class="view" id="view-postventa">
+      <div style="font-size:12px;color:#8A6E5A;margin-bottom:12px;">
+        La venta no es el final del recorrido. Acá seguimos onboarding, avance, riesgo, satisfacción, renovación y testimonios de quienes ya compraron.
+      </div>
+      <div class="kpi-grid" id="successKpis"></div>
+      <div class="section-title">Clientes que necesitan atención</div>
+      <div class="priority-list" id="successPriority"></div>
+
+      <div class="section-title">Cartera de clientes</div>
+      <div class="filters">
+        <select id="fProducto"><option value="">Producto: todos</option></select>
+        <select id="fEstadoSuccess"><option value="">Estado success: todos</option></select>
+        <select id="fSemaforo"><option value="">Semáforo: todos</option><option value="verde">🟢 Verde</option><option value="amarillo">🟡 Amarillo</option><option value="rojo">🔴 Rojo</option></select>
+      </div>
+      <table class="leads">
+        <thead><tr>
+          <th>Cliente</th><th>Producto</th><th>Estado success</th><th>Semáforo</th><th>Health score</th>
+          <th>Últ. actividad</th><th>Próxima acción</th>
+        </tr></thead>
+        <tbody id="clientsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- SUCCESS TRACKER: única fuente de verdad de marketing+ventas, calculado sobre los mismos leads/calls/payments -->
+    <div class="view" id="view-tracker">
+      <div class="tracker-topbar">
+        <div class="seg-group" id="sourceFilter">
+          <span class="seg active" data-src="">General</span>
+          <span class="seg" data-src="DM_ADS">DM Ads</span>
+          <span class="seg" data-src="VSL_ADS">VSL Ads</span>
+          <span class="seg" data-src="ORGANICO">Orgánico</span>
+          <span class="seg" data-src="PROTOCOLO">Protocolo</span>
+          <span class="seg" data-src="NEUROTIPS">Neurotips</span>
+          <span class="seg" data-src="AUDIO">Audio</span>
+          <span class="seg" data-src="HIJOS">Hijos</span>
+        </div>
+        <div class="seg-group" id="periodFilter">
+          <span class="seg" data-period="daily">Diario</span>
+          <span class="seg active" data-period="weekly">Semanal</span>
+          <span class="seg" data-period="monthly">Mensual</span>
+        </div>
+        <button class="btn-ghost" id="btnSyncMetaAds">🔄 Sincronizar Meta Ads</button>
+        <button class="btn-ghost" id="btnExplain">? Explicación de KPIs</button>
+        <button class="btn-primary" id="btnRecs">✨ Recomendaciones AI</button>
+        <button class="btn-ghost" id="btnCsv">⬇ CSV</button>
+      </div>
+      <div class="demo-banner" style="margin-top:10px">
+        Todas las cifras salen de los mismos leads, llamadas y pagos que ya ves en Leads / Llamadas / Pagos — no es una base de datos aparte. El Ad Spend "General" viene en vivo de Meta Ads (Windsor.ai) al sincronizar. El desglose por origen (Protocolo, VSL, etc.) todavía no tiene atribución de campaña a origen configurada, así que el gasto por origen se mostrará en $0 hasta que la mapeemos.
+      </div>
+
+      <div id="recsPanel" class="recs-panel" style="display:none"></div>
+
+      <div class="tracker-kpi-grid" id="trackerKpis"></div>
+
+      <div class="section-title">Contexto operativo (por qué se mueve el número)</div>
+      <div class="priority-list" id="trackerContext"></div>
+
+      <div class="section-title">Embudo del período</div>
+      <div class="chart-card" style="height:auto;padding:18px 20px;">
+        <div id="funnelBars"></div>
+      </div>
+
+      <div class="section-title">Por fuente / keyword</div>
+      <table class="leads">
+        <thead><tr><th>Fuente</th><th>Entradas</th><th>WhatsApp</th><th>MQB</th><th>Bookings</th><th>Shows</th><th>Sales</th><th>Revenue</th></tr></thead>
+        <tbody id="sourceTableBody"></tbody>
+      </table>
+
+      <div class="section-title">Calidad de datos y sincronización</div>
+      <div class="dq-grid" id="dqGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="drillOverlay">
+  <div class="modal">
+    <span class="close-x" id="closeDrill">✕</span>
+    <h3 id="drillTitle"></h3>
+    <div class="sub" id="drillSub"></div>
+    <table class="leads">
+      <thead><tr><th>Nombre</th><th>Origen</th><th>Estado</th><th>Responsable</th><th>Producto</th><th>Monto</th></tr></thead>
+      <tbody id="drillBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <span class="close-x" id="closeModal">✕</span>
+    <h3 id="modalName"></h3>
+    <div class="sub" id="modalSub"></div>
+    <div class="field-grid" id="modalFields"></div>
+    <div id="modalExtra"></div>
+    <div class="section-title" style="margin-top:0">Historial</div>
+    <div class="timeline" id="modalTimeline"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newLeadOverlay">
+  <div class="modal">
+    <span class="close-x" id="closeNewLead">✕</span>
+    <h3>Nuevo lead</h3>
+    <div class="field-grid" style="grid-template-columns:1fr">
+      <input id="nlNombre" placeholder="Nombre" class="fi" />
+      <input id="nlTelefono" placeholder="Teléfono" class="fi" />
+      <input id="nlInstagram" placeholder="Instagram (@usuario)" class="fi" />
+      <select id="nlOrigen" class="fi"></select>
+      <select id="nlCanal" class="fi"></select>
+      <input id="nlEdadHijo" placeholder="Edad del hijo/a" class="fi" />
+      <input id="nlMotivo" placeholder="Motivo principal" class="fi" />
+      <select id="nlResponsable" class="fi"></select>
+    </div>
+    <button class="btn-primary" id="btnSaveNewLead" style="width:100%">Guardar lead</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newCallOverlay">
+  <div class="modal">
+    <span class="close-x" id="closeNewCall">✕</span>
+    <h3>Agendar llamada</h3>
+    <div class="field-grid" style="grid-template-columns:1fr">
+      <select id="ncLead" class="fi"></select>
+      <input id="ncFecha" type="date" class="fi" />
+      <input id="ncHora" placeholder="Hora (ej: 15:00)" class="fi" />
+      <select id="ncCloser" class="fi"></select>
+    </div>
+    <button class="btn-primary" id="btnSaveNewCall" style="width:100%">Guardar llamada</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('es-CL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// ---------- SUPABASE (app real, hospedada, con login por persona + RLS) ----------
+// Antes esto pasaba por window.cowork.callMcpTool (rol de servicio, solo funcionaba
+// dentro del Cowork de Paula). Ahora es un cliente Supabase normal con la clave pública
+// (anon), autenticado con Supabase Auth. Cada consulta la ejecuta Postgres con el rol
+// "authenticated" del usuario logueado, respetando Row Level Security.
+const SUPABASE_URL = 'https://tobolaxwmlclonsxdwdh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_CYIlw-A-ytQOmifhsc5Bjw_cWxRt30Q';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function sql(query){
+  try {
+    const { data, error } = await sb.rpc('run_app_sql', { query });
+    if (error) { console.error('Error SQL:', error); return []; }
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    console.error('Fallo la conexión a Supabase', e);
+    return [];
+  }
+}
+function esc(s){ return String(s==null ? '' : s).replace(/'/g, "''"); }
+function toNum(v){ return (v===null || v===undefined || v==='') ? null : Number(v); }
+function toDate(v){ return v ? new Date(v) : null; }
+function fmt(d){ if(!d) return '—'; return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
+function fmtDateOnly(d){ if(!d) return '—'; return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function sameDay(d1, d2){ if(!d1||!d2) return false; return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); }
+
+// ---------- TAXONOMÍAS FIJAS DEL NEGOCIO (categorías, no datos fabricados) ----------
+const ORIGENS = ["PROTOCOLO","NEUROTIPS","AUDIO","HIJOS","VSL","NUEVO_SEGUIDOR","REEL","ORGANICO"];
+const CANALES = ["DM_ADS","VSL_ADS","ORGANICO"];
+const ESTADOS = ["NUEVO - SIN CONTACTAR","CONTACTADO","ESPERANDO RESPUESTA DEL LEAD","MENSAJE DEL LEAD SIN RESPONDER",
+  "CONVERSACIÓN ACTIVA","TOCA SEGUIMIENTO","SEGUIMIENTO ATRASADO","LLAMADA POR AGENDAR","LLAMADA AGENDADA",
+  "LLAMADA REALIZADA","NO SHOW","DECISIÓN PENDIENTE","PAGO PENDIENTE","CUOTA PENDIENTE","CLIENTE","NO AHORA","PERDIDO"];
+const SUCCESS_ESTADOS = ["NUEVO CLIENTE","ONBOARDING PENDIENTE","ONBOARDING REALIZADO","INICIÓ PROGRAMA","ACTIVO","AVANZANDO",
+  "BAJA PARTICIPACIÓN","SIN ACTIVIDAD","NECESITA CONTACTO","EN RIESGO","RECUPERADO","CERCA DE FINALIZAR","FINALIZADO",
+  "RENOVACIÓN","UPSELL / SIGUIENTE PASO","PAUSADO","BAJA / CANCELACIÓN"];
+const DEFAULT_CHECKLIST = ["Pago confirmado","Bienvenida enviada","Acceso / grupo entregado","Primera sesión agendada"];
+
+const KPI_DEFS = [
+  {key:"adSpend", label:"Ad Spend", formula:"Suma del gasto cargado en manual_metric_entries del período", fuente:"Carga manual hasta conectar Meta Ads"},
+  {key:"leads", label:"Leads", formula:"Entradas nuevas en el período", fuente:"CRM"},
+  {key:"cpl", label:"Cost per Lead", formula:"Ad Spend / Leads", fuente:"Calculado"},
+  {key:"whatsapp", label:"WhatsApp Conversations", formula:"Leads que ya no están en 'sin contactar'", fuente:"CRM"},
+  {key:"bookings", label:"Bookings", formula:"Leads con llamada agendada, realizada o no-show", fuente:"CRM"},
+  {key:"mqb", label:"Marketing Qualified Bookings (MQB)", formula:"Leads HOT o WARM en el período", fuente:"CRM"},
+  {key:"cpMqb", label:"Cost per MQB", formula:"Ad Spend / MQB", fuente:"Calculado"},
+  {key:"qb", label:"Quality Bookings", formula:"Bookings que además son HOT", fuente:"CRM"},
+  {key:"shows", label:"Shows", formula:"Llamadas realizadas (asistió)", fuente:"CRM"},
+  {key:"showRate", label:"% Show Up Rate", formula:"Shows / Bookings × 100", fuente:"Calculado"},
+  {key:"qbsu", label:"Quality Booking Show Ups (QBSU)", formula:"Quality Bookings que asistieron", fuente:"CRM"},
+  {key:"cpQbsu", label:"Cost per QBSU", formula:"Ad Spend / QBSU", fuente:"Calculado"},
+  {key:"sales", label:"Sales", formula:"Ventas cerradas en el período", fuente:"CRM / Pagos"},
+  {key:"closeRate", label:"% Close Rate", formula:"Sales / Shows × 100", fuente:"Calculado"},
+  {key:"cac", label:"CAC", formula:"Ad Spend / Sales", fuente:"Calculado"},
+  {key:"revenue", label:"Revenue", formula:"Valor contractual total de las ventas del período", fuente:"Pagos"},
+  {key:"roas", label:"ROAS", formula:"Revenue / Ad Spend", fuente:"Calculado"},
+  {key:"roiRevenue", label:"ROI Revenue", formula:"Revenue / Ad Spend", fuente:"Calculado"},
+  {key:"cashUpfront", label:"Cash Upfront", formula:"Efectivo cobrado al momento de la venta", fuente:"Pagos"},
+  {key:"pctCashUpfront", label:"% Cash Upfront", formula:"Cash Upfront / Revenue × 100", fuente:"Calculado"},
+  {key:"aovCash", label:"AOV Cash", formula:"Cash cobrado / Sales", fuente:"Calculado"},
+  {key:"totalCash", label:"Total Cash Collected", formula:"Todo el efectivo recibido en el período (incluye cuotas de ventas anteriores)", fuente:"Pagos"},
+];
+
+// ---------- ESTADO GLOBAL (cargado desde la base real) ----------
+let USERS = [];
+let PRODUCTS = [];
+let leads = [];
+let calls = [];
+let payments = [];
+let clients = [];
+
+// ---------- CARGA DE DATOS ----------
+async function loadReference(){
+  USERS = await sql(`select id, nombre, rol from users where activo order by nombre;`);
+  PRODUCTS = await sql(`select id, nombre, precio from products where activo order by nombre;`);
+}
+
+async function loadLeads(){
+  const rows = await sql(`
+    select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.canal, l.campana, l.edad_hijo, l.motivo,
+      l.estado, l.temperatura, l.responsable_id, u.nombre as responsable, l.producto_id, p.nombre as producto,
+      l.monto, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion
+    from leads l
+    left join users u on u.id = l.responsable_id
+    left join products p on p.id = l.producto_id
+    order by l.fecha_creacion desc;
+  `);
+  leads = rows.map(l => ({
+    ...l,
+    monto: toNum(l.monto),
+    fecha_creacion: toDate(l.fecha_creacion),
+    ultima_interaccion: toDate(l.ultima_interaccion),
+    fecha_proxima_accion: toDate(l.fecha_proxima_accion),
+  }));
+}
+
+async function loadCalls(){
+  const rows = await sql(`
+    select c.id, c.lead_id, l.nombre as lead_nombre, c.fecha, c.hora, c.closer_id, u.nombre as closer, c.estado, c.resultado
+    from calls c
+    join leads l on l.id = c.lead_id
+    left join users u on u.id = c.closer_id
+    order by c.fecha, c.hora;
+  `);
+  calls = rows.map(c => ({ ...c, fecha: c.fecha ? new Date(c.fecha + 'T00:00:00') : null, lead: c.lead_nombre }));
+}
+
+async function loadPayments(){
+  const rows = await sql(`
+    select pay.id, pay.sale_id, s.lead_id, l.nombre as cliente, pr.nombre as producto,
+      pay.numero_cuota, pay.total_cuotas, pay.monto, pay.vence, pay.estado, u.nombre as responsable
+    from payments pay
+    join sales s on s.id = pay.sale_id
+    join leads l on l.id = s.lead_id
+    left join products pr on pr.id = s.producto_id
+    left join users u on u.id = l.responsable_id
+    order by pay.vence;
+  `);
+  payments = rows.map(p => ({ ...p, monto: toNum(p.monto), vence: p.vence ? new Date(p.vence + 'T00:00:00') : null, cuota: `${p.numero_cuota}/${p.total_cuotas}` }));
+}
+
+async function loadClients(){
+  const rows = await sql(`
+    select l.id, l.nombre, l.telefono, l.instagram, l.origen, l.canal, l.campana, l.edad_hijo, l.motivo,
+      l.estado, l.temperatura, l.proxima_accion, l.fecha_proxima_accion, l.fecha_creacion, l.ultima_interaccion,
+      u.nombre as responsable, p.nombre as producto, l.monto,
+      cs.estado_success, cs.health_score, cs.health_reasons, cs.onboarding_done, cs.checklist,
+      cs.dias_sin_actividad, cs.necesita_checkin, cs.proxima_sesion, cs.hitos, cs.testimonio_status,
+      cs.referido_status, cs.proxima_accion_success
+    from client_success cs
+    join leads l on l.id = cs.lead_id
+    left join users u on u.id = l.responsable_id
+    left join products p on p.id = l.producto_id;
+  `);
+  clients = rows.map(c => {
+    const checklist = typeof c.checklist === 'string' ? JSON.parse(c.checklist) : (c.checklist || []);
+    const health_reasons = typeof c.health_reasons === 'string' ? JSON.parse(c.health_reasons) : (c.health_reasons || []);
+    const hitos = typeof c.hitos === 'string' ? JSON.parse(c.hitos) : (c.hitos || []);
+    return {
+      ...c, monto: toNum(c.monto), checklist, health_reasons, hitos,
+      fecha_creacion: toDate(c.fecha_creacion), ultima_interaccion: toDate(c.ultima_interaccion),
+      fecha_proxima_accion: toDate(c.fecha_proxima_accion), proxima_sesion: toDate(c.proxima_sesion),
+      semaforo: c.health_score >= 65 ? 'verde' : c.health_score >= 40 ? 'amarillo' : 'rojo',
+    };
+  });
+}
+
+// ---------- SALUD DEL CLIENTE (fórmula transparente sobre datos reales, sin azar) ----------
+function computeHealth(diasSinActividad, onboardingDone, pagoAtrasado){
+  let score = 60; const reasons = [];
+  if (onboardingDone) { score += 10; reasons.push('+10 onboarding completado'); }
+  else { score -= 15; reasons.push('-15 onboarding pendiente'); }
+  if (diasSinActividad > 10) { score -= 20; reasons.push(`-20 lleva ${diasSinActividad} días sin actividad`); }
+  else if (diasSinActividad > 5) { score -= 8; reasons.push(`-8 lleva ${diasSinActividad} días sin actividad`); }
+  else { reasons.push(`lleva solo ${diasSinActividad} días sin actividad, dentro de lo esperado`); }
+  if (pagoAtrasado) { score -= 10; reasons.push('-10 tiene una cuota atrasada'); }
+  score = Math.max(5, Math.min(98, score));
+  const semaforo = score >= 65 ? 'verde' : score >= 40 ? 'amarillo' : 'rojo';
+  return { score, reasons, semaforo };
+}
+
+// ---------- NAV ----------
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + item.dataset.view).classList.add('active');
+    document.getElementById('viewTitle').textContent = item.textContent.trim().replace(/^\S+\s/, '');
+  });
+});
+window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${view}"]`).click(); };
+
+// ---------- HOY ----------
+function renderKpis(){
+  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR").length;
+  const sinResponder = leads.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER").length;
+  const esperando = leads.filter(l => l.estado === "ESPERANDO RESPUESTA DEL LEAD").length;
+  const hot = leads.filter(l => l.temperatura === "HOT").length;
+  const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO").length;
+  const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO").length;
+  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date())).length;
+  const noShows = leads.filter(l => l.estado === "NO SHOW").length;
+  const cuotasPend = payments.filter(p => p.estado !== "Pagada").length;
+  const ventasHoy = leads.filter(l => l.temperatura === "CLIENTE" && l.ultima_interaccion && (new Date() - l.ultima_interaccion) < 86400000).length;
+  const ventasMes = leads.filter(l => l.temperatura === "CLIENTE").length;
+  const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000).length;
+  const cards = [
+    {n: nuevosHoy, l: "Nuevos leads hoy", cls:""},
+    {n: sinContactar, l: "Sin contactar", cls:"alert"},
+    {n: sinResponder, l: "Mensajes sin responder", cls:"alert"},
+    {n: esperando, l: "Esperando resp. del lead", cls:""},
+    {n: hot, l: "Leads calientes", cls:"hot"},
+    {n: followToday, l: "Follow-ups para hoy", cls:""},
+    {n: followLate, l: "Follow-ups atrasados", cls:"alert"},
+    {n: callsToday, l: "Llamadas hoy", cls:""},
+    {n: noShows, l: "No-shows por recuperar", cls:"alert"},
+    {n: cuotasPend, l: "Cuotas pendientes", cls:""},
+    {n: ventasHoy, l: "Ventas hoy", cls:"good"},
+    {n: ventasMes, l: "Ventas totales", cls:"good"},
+  ];
+  document.getElementById('kpiGrid').innerHTML = cards.map(c =>
+    `<div class="kpi-card ${c.cls}"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`
+  ).join('');
+}
+
+function renderPriority(){
+  const hotNoResp = leads.filter(l => l.temperatura === "HOT" && l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
+  const nuevos = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR");
+  const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO");
+  const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO");
+  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date()));
+  const cuotasHoy = payments.filter(p => p.estado === "Por vencer");
+  const rows = [
+    {cls:"urgent", tag:"Urgente", txt: `${hotNoResp.length} leads calientes sin responder`, view:"leads"},
+    {cls:"now", tag:"Ahora", txt: `${nuevos.length} nuevos leads todavía sin contactar`, view:"leads"},
+    {cls:"", tag:"Seguimiento", txt: `${followToday.length} leads a quienes corresponde escribir hoy`, view:"leads"},
+    {cls:"urgent", tag:"Atrasado", txt: `${followLate.length} seguimientos atrasados`, view:"leads"},
+    {cls:"", tag:"Llamadas", txt: `${callsToday.length} llamadas agendadas para hoy`, view:"llamadas"},
+    {cls:"now", tag:"Pagos", txt: `${cuotasHoy.length} cuotas por vencer pronto`, view:"pagos"},
+  ];
+  if (!leads.length) rows.unshift({cls:"", tag:"Empezar", txt:"Todavía no hay leads cargados — ve a Leads y agrega el primero", view:"leads"});
+  document.getElementById('priorityList').innerHTML = rows.map(r =>
+    `<div class="priority-row ${r.cls}"><span class="tag">${r.tag}</span><span class="txt">${r.txt}</span><button onclick="goTo('${r.view}')">Ver</button></div>`
+  ).join('');
+}
+
+// ---------- CALENDARIO ----------
+function renderCalendario(){
+  const fr = document.getElementById('fCalResp').value;
+  const today = new Date();
+  const days = [];
+  for (let i=0; i<7; i++){ const d = new Date(); d.setDate(today.getDate()+i); days.push(d); }
+
+  document.getElementById('calGrid').innerHTML = days.map(day => {
+    const items = [];
+    calls.forEach(c => { if (sameDay(c.fecha, day) && (!fr || c.closer === fr)) items.push({cls:'call', t:c.hora||'', txt:`Llamada: ${c.lead_nombre} (${c.closer||'sin asignar'})`}); });
+    leads.forEach(l => { if (sameDay(l.fecha_proxima_accion, day) && (!fr || l.responsable === fr) && l.temperatura !== "CLIENTE") items.push({cls:'follow', t:'Seguimiento', txt:`${l.proxima_accion||'Seguir'}: ${l.nombre} (${l.responsable||'sin asignar'})`}); });
+    payments.forEach(p => { if (sameDay(p.vence, day) && p.estado !== "Pagada" && (!fr || p.responsable === fr)) items.push({cls:'payment', t:'Cuota', txt:`${p.cliente} — $${p.monto} (${p.responsable||'sin asignar'})`}); });
+    clients.forEach(c => { if (sameDay(c.proxima_sesion, day) && (!fr || c.responsable === fr)) items.push({cls:'checkin', t:'Check-in/sesión', txt:`${c.nombre} (${c.responsable||'sin asignar'})`}); });
+    items.sort((a,b) => (a.t||'').localeCompare(b.t||''));
+    return `<div class="cal-day ${sameDay(day, today) ? 'today' : ''}">
+      <div class="cal-day-header">${day.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit', month:'2-digit'})}</div>
+      ${items.length ? items.map(it => `<div class="cal-item ${it.cls}"><span class="t">${it.t}</span>${it.txt}</div>`).join('') : '<div class="cal-empty">Sin pendientes</div>'}
+    </div>`;
+  }).join('');
+
+  document.getElementById('teamPending').innerHTML = USERS.map(u => {
+    const r = u.nombre;
+    const hotSinResp = leads.filter(l => l.responsable===r && l.temperatura==="HOT" && l.estado==="MENSAJE DEL LEAD SIN RESPONDER").length;
+    const seguimientoAtrasado = leads.filter(l => l.responsable===r && l.estado==="SEGUIMIENTO ATRASADO").length;
+    const llamadasHoy = calls.filter(c => c.closer===r && sameDay(c.fecha, today)).length;
+    const cuotasAtrasadas = payments.filter(p => p.responsable===r && p.estado==="Atrasada").length;
+    const checkinsPend = clients.filter(c => c.responsable===r && c.necesita_checkin).length;
+    return `<div class="team-card">
+      <h4>${r} <span style="font-size:10px;color:#8A6E5A;text-transform:uppercase">(${u.rol})</span></h4>
+      <div class="row ${hotSinResp?'warn':''}"><span>Leads HOT sin responder</span><b>${hotSinResp}</b></div>
+      <div class="row ${seguimientoAtrasado?'warn':''}"><span>Seguimientos atrasados</span><b>${seguimientoAtrasado}</b></div>
+      <div class="row"><span>Llamadas hoy</span><b>${llamadasHoy}</b></div>
+      <div class="row ${cuotasAtrasadas?'warn':''}"><span>Cuotas atrasadas</span><b>${cuotasAtrasadas}</b></div>
+      <div class="row"><span>Check-ins de clientes pendientes</span><b>${checkinsPend}</b></div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('fCalResp').addEventListener('input', renderCalendario);
+
+// ---------- LEADS ----------
+function pillClass(t){ return t === "HOT" ? "hot" : t === "WARM" ? "warm" : t === "CLIENTE" ? "cliente" : "cold"; }
+
+function renderLeadsTable(list){
+  document.getElementById('leadsEmptyBanner').style.display = leads.length ? 'none' : 'block';
+  document.getElementById('leadsBody').innerHTML = list.map(l => `
+    <tr onclick="openModal('${l.id}')">
+      <td>${l.nombre}</td>
+      <td>${l.origen||'—'}</td>
+      <td>${l.edad_hijo||'—'}</td>
+      <td>${l.motivo||'—'}</td>
+      <td>${l.estado}</td>
+      <td><span class="pill ${pillClass(l.temperatura)}">${l.temperatura}</span></td>
+      <td>${l.responsable||'—'}</td>
+      <td>${fmt(l.ultima_interaccion)}</td>
+      <td>${l.proxima_accion||'—'}</td>
+    </tr>`).join('');
+}
+function applyFilters(){
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const fe = document.getElementById('fEstado').value;
+  const ft = document.getElementById('fTemp').value;
+  const fo = document.getElementById('fOrigen').value;
+  const fr = document.getElementById('fResp').value;
+  const filtered = leads.filter(l =>
+    (!q || l.nombre.toLowerCase().includes(q) || (l.telefono||'').includes(q) || (l.instagram||'').toLowerCase().includes(q)) &&
+    (!fe || l.estado === fe) && (!ft || l.temperatura === ft) && (!fo || l.origen === fo) && (!fr || l.responsable === fr)
+  );
+  renderLeadsTable(filtered);
+}
+['searchBox','fEstado','fTemp','fOrigen','fResp'].forEach(id => document.getElementById(id).addEventListener('input', applyFilters));
+
+function populateStaticSelects(){
+  document.getElementById('fEstado').innerHTML = '<option value="">Estado: todos</option>' + ESTADOS.map(e => `<option>${e}</option>`).join('');
+  document.getElementById('fOrigen').innerHTML = '<option value="">Origen: todos</option>' + ORIGENS.map(o => `<option>${o}</option>`).join('');
+  document.getElementById('fResp').innerHTML = '<option value="">Responsable: todos</option>' + USERS.map(u => `<option>${u.nombre}</option>`).join('');
+  document.getElementById('fCalResp').innerHTML = '<option value="">Responsable: todos</option>' + USERS.map(u => `<option>${u.nombre}</option>`).join('');
+  document.getElementById('fProducto').innerHTML = '<option value="">Producto: todos</option>' + PRODUCTS.map(p => `<option>${p.nombre}</option>`).join('');
+  document.getElementById('fEstadoSuccess').innerHTML = '<option value="">Estado success: todos</option>' + SUCCESS_ESTADOS.map(e => `<option>${e}</option>`).join('');
+  document.getElementById('nlOrigen').innerHTML = ORIGENS.map(o => `<option>${o}</option>`).join('');
+  document.getElementById('nlCanal').innerHTML = CANALES.map(c => `<option>${c}</option>`).join('');
+  document.getElementById('nlResponsable').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
+  document.getElementById('ncCloser').innerHTML = '<option value="">Sin asignar</option>' + USERS.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
+}
+function populateLeadPicker(){
+  const opciones = leads.filter(l => l.temperatura !== "CLIENTE").map(l => `<option value="${l.id}">${l.nombre}</option>`).join('');
+  document.getElementById('ncLead').innerHTML = opciones || '<option value="">No hay leads disponibles</option>';
+}
+
+// ---------- NUEVO LEAD ----------
+document.getElementById('btnNewLead').addEventListener('click', () => document.getElementById('newLeadOverlay').classList.add('open'));
+document.getElementById('closeNewLead').onclick = () => document.getElementById('newLeadOverlay').classList.remove('open');
+document.getElementById('newLeadOverlay').addEventListener('click', e => { if (e.target.id==='newLeadOverlay') e.currentTarget.classList.remove('open'); });
+document.getElementById('btnSaveNewLead').addEventListener('click', async () => {
+  const nombre = document.getElementById('nlNombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const telefono = document.getElementById('nlTelefono').value.trim();
+  const instagram = document.getElementById('nlInstagram').value.trim();
+  const origen = document.getElementById('nlOrigen').value;
+  const canal = document.getElementById('nlCanal').value;
+  const edadHijo = document.getElementById('nlEdadHijo').value.trim();
+  const motivo = document.getElementById('nlMotivo').value.trim();
+  const respId = document.getElementById('nlResponsable').value;
+  await sql(`insert into leads (nombre, telefono, instagram, origen, canal, edad_hijo, motivo, estado, temperatura, responsable_id, proxima_accion)
+    values ('${esc(nombre)}', '${esc(telefono)}', '${esc(instagram)}', '${esc(origen)}', '${esc(canal)}', '${esc(edadHijo)}', '${esc(motivo)}',
+      'NUEVO - SIN CONTACTAR', 'COLD', ${respId ? `'${esc(respId)}'` : 'null'}, 'Contactar por primera vez');`);
+  document.getElementById('newLeadOverlay').classList.remove('open');
+  ['nlNombre','nlTelefono','nlInstagram','nlEdadHijo','nlMotivo'].forEach(id => document.getElementById(id).value = '');
+  await refreshAll();
+});
+
+// ---------- MODAL DE LEAD / CLIENTE ----------
+let currentModalId = null;
+window.openModal = async function(id){
+  currentModalId = id;
+  const c = clients.find(x => x.id === id);
+  const l = c || leads.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('modalName').textContent = l.nombre;
+  document.getElementById('modalSub').textContent = `${l.telefono||'sin teléfono'} · ${l.instagram||'sin instagram'} · Creado ${fmtDateOnly(l.fecha_creacion)}`;
+  document.getElementById('modalFields').innerHTML = `
+    <div style="grid-column:1/-1" class="fi-label">Estado</div>
+    <select id="mfEstado" class="fi" style="grid-column:1/-1">${ESTADOS.map(e => `<option ${e===l.estado?'selected':''}>${e}</option>`).join('')}</select>
+    <div class="fi-label">Temperatura</div><div class="fi-label">Responsable</div>
+    <select id="mfTemp" class="fi">${["HOT","WARM","COLD","CLIENTE"].map(t => `<option ${t===l.temperatura?'selected':''}>${t}</option>`).join('')}</select>
+    <select id="mfResp" class="fi"><option value="">Sin asignar</option>${USERS.map(u => `<option value="${u.id}" ${u.nombre===l.responsable?'selected':''}>${u.nombre}</option>`).join('')}</select>
+    <div class="fi-label">Producto (si es cliente)</div><div class="fi-label">Monto</div>
+    <select id="mfProducto" class="fi"><option value="">—</option>${PRODUCTS.map(p => `<option value="${p.id}" ${p.nombre===l.producto?'selected':''}>${p.nombre} ($${p.precio})</option>`).join('')}</select>
+    <input id="mfMonto" class="fi" type="number" value="${l.monto||''}" placeholder="Monto" />
+    <div class="fi-label">Próxima acción</div><div class="fi-label">Fecha próxima acción</div>
+    <input id="mfProxAccion" class="fi" value="${l.proxima_accion||''}" />
+    <input id="mfProxFecha" class="fi" type="date" value="${l.fecha_proxima_accion ? l.fecha_proxima_accion.toISOString().slice(0,10) : ''}" />
+    <div style="grid-column:1/-1"><div class="fi-label">Motivo / origen</div><div style="font-size:12px;color:#3A2E28">${l.origen||'—'} · ${l.motivo||'sin motivo registrado'} · hijo/a: ${l.edad_hijo||'—'}</div></div>
+    <div class="save-row" style="grid-column:1/-1">
+      <button class="btn-primary" onclick="saveLead()">Guardar cambios</button>
+    </div>
+    <div style="grid-column:1/-1;margin-top:10px">
+      <div class="fi-label">Agregar nota al historial</div>
+      <textarea id="mfNota" class="note-box" placeholder="Ej: respondió por WhatsApp, contó que..."></textarea>
+      <div class="save-row"><button class="btn-ghost" onclick="addNote()">+ Agregar nota</button></div>
+    </div>
+  `;
+  if (c) {
+    document.getElementById('modalExtra').innerHTML = `
+      <div class="section-title" style="margin-top:14px">Post-venta</div>
+      <div class="field-grid">
+        <div class="k">Estado success</div><div class="v">${c.estado_success}</div>
+        <div class="k">Health score</div><div class="v">
+          <span class="semaforo-dot ${c.semaforo}"></span>${c.health_score}
+          <span class="health-bar-track"><span class="health-bar-fill" style="width:${c.health_score}%; background:${c.semaforo==='verde'?'#2E7D32':c.semaforo==='amarillo'?'#E0A314':'#C0392B'}"></span></span>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:#8A6E5A;margin-bottom:8px;">Por qué tiene este score:</div>
+      ${(c.health_reasons||[]).map(r => `<div class="health-reason">• ${r}</div>`).join('')}
+      <div style="font-size:11.5px;color:#8A6E5A;margin:10px 0 4px;">Checklist de onboarding (clic para marcar):</div>
+      ${(c.checklist||[]).map((i,idx) => `<div class="checklist-item ${i.done?'done':''}" onclick="toggleChecklist(${idx})"><span class="box"></span>${i.label}</div>`).join('')}
+      <div class="save-row" style="margin-top:8px">
+        <button class="btn-ghost" onclick="markCheckin()">✓ Marcar check-in realizado hoy</button>
+      </div>
+      ${c.hitos && c.hitos.length ? `<div style="font-size:11.5px;color:#8A6E5A;margin:10px 0 4px;">Hitos conseguidos:</div>${c.hitos.map(h=>`<div class="health-reason">🌱 ${h}</div>`).join('')}` : ''}
+      ${c.testimonio_status && c.testimonio_status !== '—' ? `<span class="badge-mini">${c.testimonio_status}</span>` : ''}
+      ${c.referido_status && c.referido_status !== '—' ? `<span class="badge-mini">${c.referido_status}</span>` : ''}
+    `;
+  } else {
+    document.getElementById('modalExtra').innerHTML = '';
+  }
+  document.getElementById('modalTimeline').innerHTML = '<div class="loading-note">Cargando historial…</div>';
+  document.getElementById('modalOverlay').classList.add('open');
+  const tp = await sql(`select fecha, texto from touchpoints where lead_id = '${esc(id)}' order by fecha desc;`);
+  document.getElementById('modalTimeline').innerHTML = tp.length
+    ? tp.map(t => `<div class="t-item"><div class="t-date">${fmt(new Date(t.fecha))}</div>${t.texto}</div>`).join('')
+    : '<div class="loading-note">Sin historial todavía — agrega la primera nota arriba.</div>';
+};
+document.getElementById('closeModal').onclick = () => document.getElementById('modalOverlay').classList.remove('open');
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') e.currentTarget.classList.remove('open'); });
+
+window.saveLead = async function(){
+  const id = currentModalId;
+  const l = leads.find(x => x.id === id);
+  const estado = document.getElementById('mfEstado').value;
+  const temp = document.getElementById('mfTemp').value;
+  const respId = document.getElementById('mfResp').value;
+  const prodId = document.getElementById('mfProducto').value;
+  const monto = document.getElementById('mfMonto').value;
+  const proxAccion = document.getElementById('mfProxAccion').value;
+  const proxFecha = document.getElementById('mfProxFecha').value;
+  const becameClient = temp === 'CLIENTE' && l && l.temperatura !== 'CLIENTE';
+
+  await sql(`update leads set estado='${esc(estado)}', temperatura='${esc(temp)}',
+    responsable_id=${respId ? `'${esc(respId)}'` : 'null'}, producto_id=${prodId ? `'${esc(prodId)}'` : 'null'},
+    monto=${monto ? toNum(monto) : 'null'}, proxima_accion='${esc(proxAccion)}',
+    fecha_proxima_accion=${proxFecha ? `'${esc(proxFecha)}'` : 'null'}, ultima_interaccion=now(), updated_at=now()
+    where id='${esc(id)}';`);
+  await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', 'Actualizado${currentUser ? ' por ' + esc(currentUser.nombre) : ''}: estado=${esc(estado)}, temperatura=${esc(temp)}', 'estado_cambio');`);
+
+  if (becameClient && prodId && monto) {
+    const montoNum = toNum(monto);
+    const saleRows = await sql(`insert into sales (lead_id, producto_id, monto_total, cash_upfront) values ('${esc(id)}', '${esc(prodId)}', ${montoNum}, ${Math.round(montoNum*0.55)}) returning id;`);
+    const saleId = saleRows && saleRows[0] && saleRows[0].id;
+    if (saleId) {
+      const cuota = Math.round((montoNum/3)*100)/100;
+      for (let i=1;i<=3;i++){
+        const vence = new Date(); vence.setDate(vence.getDate() + i*30);
+        await sql(`insert into payments (sale_id, numero_cuota, total_cuotas, monto, vence, estado) values ('${esc(saleId)}', ${i}, 3, ${cuota}, '${vence.toISOString().slice(0,10)}', 'Por vencer');`);
+      }
+    }
+    const checklist = JSON.stringify(DEFAULT_CHECKLIST.map(label => ({label, done:false})));
+    await sql(`insert into client_success (lead_id, estado_success, health_score, health_reasons, onboarding_done, checklist, dias_sin_actividad, necesita_checkin, proxima_sesion, proxima_accion_success)
+      values ('${esc(id)}', 'NUEVO CLIENTE', 60, '["lead recién convertido a cliente"]', false, '${checklist.replace(/'/g,"''")}', 0, true, (current_date + interval '3 day')::date, 'Completar onboarding')
+      on conflict (lead_id) do nothing;`);
+    await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', 'Compró ${esc(document.getElementById('mfProducto').selectedOptions[0].text)} — se creó venta y ficha de post-venta', 'venta');`);
+  }
+  document.getElementById('modalOverlay').classList.remove('open');
+  await refreshAll();
+};
+
+window.addNote = async function(){
+  const id = currentModalId;
+  const texto = document.getElementById('mfNota').value.trim();
+  if (!texto) return;
+  const firmado = currentUser ? `[${currentUser.nombre}] ${texto}` : texto;
+  await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', '${esc(firmado)}', 'nota');`);
+  await sql(`update leads set ultima_interaccion = now() where id = '${esc(id)}';`);
+  document.getElementById('modalOverlay').classList.remove('open');
+  await refreshAll();
+};
+
+window.toggleChecklist = async function(idx){
+  const c = clients.find(x => x.id === currentModalId);
+  if (!c) return;
+  c.checklist[idx].done = !c.checklist[idx].done;
+  const onboardingDone = c.checklist.every(i => i.done);
+  const health = computeHealth(c.dias_sin_actividad||0, onboardingDone, false);
+  await sql(`update client_success set checklist='${JSON.stringify(c.checklist).replace(/'/g,"''")}', onboarding_done=${onboardingDone},
+    health_score=${health.score}, health_reasons='${JSON.stringify(health.reasons).replace(/'/g,"''")}' where lead_id='${esc(currentModalId)}';`);
+  await refreshAll();
+  await openModal(currentModalId);
+};
+
+window.markCheckin = async function(){
+  const id = currentModalId;
+  const c = clients.find(x => x.id === id);
+  if (!c) return;
+  const health = computeHealth(0, c.onboarding_done, false);
+  await sql(`update client_success set dias_sin_actividad=0, necesita_checkin=false, health_score=${health.score}, health_reasons='${JSON.stringify(health.reasons).replace(/'/g,"''")}' where lead_id='${esc(id)}';`);
+  await sql(`update leads set ultima_interaccion=now() where id='${esc(id)}';`);
+  await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(id)}', 'Check-in realizado${currentUser ? ' por ' + esc(currentUser.nombre) : ''}', 'checkin');`);
+  await refreshAll();
+  await openModal(id);
+};
+
+// ---------- PIPELINE ----------
+const pipelineStages = ["Nuevo","Conversando","Seguimiento","Calificado","Llamada","Decisión","Pago","Cliente"];
+function stageFor(l){
+  if (l.temperatura === "CLIENTE") return "Cliente";
+  if (l.estado === "PAGO PENDIENTE" || l.estado === "CUOTA PENDIENTE") return "Pago";
+  if (l.estado.includes("LLAMADA") || l.estado === "NO SHOW") return "Llamada";
+  if (l.estado === "DECISIÓN PENDIENTE") return "Decisión";
+  if (l.temperatura === "HOT" || l.temperatura === "WARM") return "Calificado";
+  if (l.estado.includes("SEGUIMIENTO")) return "Seguimiento";
+  if (l.estado === "NUEVO - SIN CONTACTAR") return "Nuevo";
+  return "Conversando";
+}
+function renderPipeline(){
+  document.getElementById('pipelineCols').innerHTML = pipelineStages.map(stage => {
+    const items = leads.filter(l => stageFor(l) === stage);
+    return `<div class="pipeline-col"><h5>${stage} (${items.length})</h5>${
+      items.slice(0,10).map(l => `<div class="pipeline-card" onclick="openModal('${l.id}')"><div class="n">${l.nombre}</div><div class="m">${l.origen||'—'} · ${l.motivo||''}</div></div>`).join('')
+    }</div>`;
+  }).join('');
+}
+
+// ---------- ORÍGENES ----------
+let funnelChartInstance = null;
+function renderOrigins(){
+  document.getElementById('originGrid').innerHTML = ORIGENS.map(o => {
+    const items = leads.filter(l => l.origen === o);
+    const wa = items.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
+    const calificados = items.filter(l => l.temperatura === "HOT" || l.temperatura === "WARM").length;
+    const llamadas = calls.filter(c => leads.find(l => l.id === c.lead_id && l.origen === o)).length;
+    const ventas = items.filter(l => l.temperatura === "CLIENTE").length;
+    return `<div class="origin-card">
+      <h4>${o}</h4>
+      <div class="row"><span>Entradas</span><b>${items.length}</b></div>
+      <div class="row"><span>A WhatsApp</span><b>${wa}</b></div>
+      <div class="row"><span>Calificados</span><b>${calificados}</b></div>
+      <div class="row"><span>Llamadas</span><b>${llamadas}</b></div>
+      <div class="row"><span>Ventas</span><b>${ventas}</b></div>
+      <div class="conv">Conversión a venta: ${items.length ? ((ventas/items.length)*100).toFixed(1) : 0}%</div>
+    </div>`;
+  }).join('');
+
+  const totalLeads = leads.length;
+  const wa = leads.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
+  const cal = leads.filter(l => l.temperatura==="HOT"||l.temperatura==="WARM").length;
+  const lla = calls.length;
+  const ven = leads.filter(l=>l.temperatura==="CLIENTE").length;
+  if (funnelChartInstance) funnelChartInstance.destroy();
+  funnelChartInstance = new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: { labels: ['Entradas','WhatsApp','Calificados','Llamadas','Ventas'],
+      datasets: [{ label: 'Leads en cada etapa', data: [totalLeads, wa, cal, lla, ven], backgroundColor: '#8A6E5A' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+// ---------- LLAMADAS ----------
+function renderCalls(){
+  const hoy = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date())).length;
+  const realizadas = calls.filter(c => c.estado === "LLAMADA REALIZADA").length;
+  const noShow = calls.filter(c => c.estado === "NO SHOW").length;
+  document.getElementById('callKpis').innerHTML = [
+    {n: hoy, l:"Llamadas hoy"}, {n: realizadas, l:"Realizadas"}, {n: noShow, l:"No-shows"},
+    {n: calls.length ? ((noShow/calls.length)*100).toFixed(0)+'%' : '0%', l:"Tasa de no-show"}
+  ].map(c => `<div class="kpi-card"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`).join('');
+
+  document.getElementById('callsBody').innerHTML = calls.map(c => `
+    <tr><td>${c.lead_nombre}</td><td>${fmtDateOnly(c.fecha)}</td><td>${c.hora||'—'}</td><td>${c.closer||'—'}</td>
+    <td><select class="fi" onchange="updateCall('${c.id}','estado',this.value)">${["LLAMADA AGENDADA","LLAMADA REALIZADA","NO SHOW","CANCELADA"].map(e=>`<option ${e===c.estado?'selected':''}>${e}</option>`).join('')}</select></td>
+    <td><select class="fi" onchange="updateCall('${c.id}','resultado',this.value)">${["Pendiente","Cerró","Seguimiento","No ahora"].map(r=>`<option ${r===(c.resultado||'Pendiente')?'selected':''}>${r}</option>`).join('')}</select></td></tr>`).join('');
+}
+window.updateCall = async function(id, field, value){
+  await sql(`update calls set ${field}='${esc(value)}' where id='${esc(id)}';`);
+  await loadCalls();
+  renderCalls(); renderCalendario(); renderKpis(); renderPriority();
+};
+document.getElementById('btnNewCall').addEventListener('click', () => { populateLeadPicker(); document.getElementById('newCallOverlay').classList.add('open'); });
+
+// ---------- SINCRONIZACIÓN CON CALENDLY (bajo demanda, vía window.cowork.callMcpTool) ----------
+const CALENDLY_TOOLS = {
+  currentUser: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__users-get_current_user',
+  listEvents: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__meetings-list_events',
+  listInvitees: 'mcp__485e6ae1-7199-4f0c-9781-2ea16b516a99__meetings-list_event_invitees',
+};
+async function callMcp(name, args){
+  // Estos sync manuales (Calendly, Meta Ads) usan los conectores de Cowork,
+  // que solo existen dentro de la sesión de Cowork de Paula. Desde esta app
+  // hospedada aparte, window.cowork no existe — avisamos claro en vez de fallar en silencio.
+  if (!window.cowork || !window.cowork.callMcpTool) {
+    alert('Esta sincronización manual (Calendly / Meta Ads) todavía solo funciona desde el Cowork de Paula, no desde este link. Los datos que ya llegan solos (ManyChat, WhatsApp, webhooks) sí funcionan acá normalmente.');
+    return null;
+  }
+  try {
+    const r = await window.cowork.callMcpTool(name, args);
+    if (r && r.isError) { console.error('Error MCP', name, r); return null; }
+    if (r && r.structuredContent != null) return r.structuredContent;
+    const text = (r && r.content && r.content[0] && r.content[0].text) || '';
+    try { return JSON.parse(text); } catch(e) { console.error('No se pudo parsear respuesta MCP', name, e, text); return null; }
+  } catch(e) { console.error('Fallo llamando MCP', name, e); return null; }
+}
+document.getElementById('btnSyncCalendly').addEventListener('click', async () => {
+  const btn = document.getElementById('btnSyncCalendly');
+  const original = btn.textContent;
+  btn.textContent = 'Sincronizando…'; btn.disabled = true;
+  try {
+    const me = await callMcp(CALENDLY_TOOLS.currentUser, {});
+    const userUri = me && me.resource && me.resource.uri;
+    if (!userUri) { alert('No pude leer tu cuenta de Calendly — revisa que siga conectada.'); return; }
+    const events = await callMcp(CALENDLY_TOOLS.listEvents, { user: userUri, count: 50, sort: 'start_time:desc' });
+    const list = (events && events.collection) || [];
+    let creados = 0, llamadasNuevas = 0;
+    for (const ev of list) {
+      const invRes = await callMcp(CALENDLY_TOOLS.listInvitees, { uri: ev.uri });
+      const inv = invRes && invRes.collection && invRes.collection[0];
+      if (!inv) continue;
+      const email = (inv.email || '').toLowerCase();
+      const nombre = inv.name || 'Invitado Calendly';
+      if (!email) continue;
+      let existing = await sql(`select id from leads where lower(email)='${esc(email)}' limit 1;`);
+      let leadId;
+      if (existing.length) {
+        leadId = existing[0].id;
+      } else {
+        const created = await sql(`insert into leads (nombre, email, origen, estado, temperatura, proxima_accion)
+          values ('${esc(nombre)}', '${esc(email)}', 'CALENDLY', 'LLAMADA AGENDADA', 'WARM', 'Llamada agendada vía Calendly')
+          returning id;`);
+        leadId = created[0] && created[0].id;
+        if (leadId) creados++;
+      }
+      if (!leadId) continue;
+      const fechaISO = new Date(ev.start_time).toISOString().slice(0,10);
+      const horaTxt = new Date(ev.start_time).toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'});
+      const estadoCall = ev.status === 'canceled' ? 'CANCELADA' : (new Date(ev.start_time) < new Date() ? 'LLAMADA REALIZADA' : 'LLAMADA AGENDADA');
+      const existingCall = await sql(`select id from calls where lead_id='${esc(leadId)}' and fecha='${fechaISO}';`);
+      if (!existingCall.length) {
+        await sql(`insert into calls (lead_id, fecha, hora, estado) values ('${esc(leadId)}', '${fechaISO}', '${esc(horaTxt)}', '${esc(estadoCall)}');`);
+        await sql(`update leads set estado='${esc(estadoCall)}', fecha_proxima_accion='${fechaISO}' where id='${esc(leadId)}' and estado not in ('CLIENTE');`);
+        await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(leadId)}', 'Evento de Calendly: ${esc(ev.name||'reunión')} — ${fechaISO} ${esc(horaTxt)}', 'llamada');`);
+        llamadasNuevas++;
+      }
+    }
+    await sql(`update integration_sync_logs set estado='conectado', ultima_sincronizacion=now(), mensaje='Sincronizado manualmente desde el CRM (${creados} leads nuevos, ${llamadasNuevas} llamadas)' where integracion='calendly';`);
+    await refreshAll();
+    alert(`Listo: ${creados} leads nuevos, ${llamadasNuevas} llamadas sincronizadas desde Calendly.`);
+  } catch(e) {
+    console.error(e); alert('Error sincronizando Calendly, revisa la consola.');
+  } finally {
+    btn.textContent = original; btn.disabled = false;
+  }
+});
+// ---------- SINCRONIZACIÓN CON META ADS (Windsor.ai, bajo demanda) ----------
+const WINDSOR_TOOLS = {
+  getData: 'mcp__1c122360-5269-4f11-9b60-f4701c86a8e8__get_data',
+};
+document.getElementById('btnSyncMetaAds').addEventListener('click', async () => {
+  const btn = document.getElementById('btnSyncMetaAds');
+  const original = btn.textContent;
+  btn.textContent = 'Sincronizando…'; btn.disabled = true;
+  try {
+    const res = await callMcp(WINDSOR_TOOLS.getData, {
+      connector: 'facebook',
+      fields: ['date', 'campaign', 'spend'],
+      date_preset: 'last_30d',
+      accounts: ['25180663818194425']
+    });
+    const rows = (res && res.result) || res || [];
+    if (!Array.isArray(rows) || !rows.length) { alert('No llegaron datos de Meta Ads — revisa que Windsor.ai siga conectado.'); return; }
+    const porDia = {};
+    for (const r of rows) {
+      const f = r.date;
+      const v = toNum(r.spend);
+      if (!f) continue;
+      porDia[f] = (porDia[f] || 0) + v;
+    }
+    const fechas = Object.keys(porDia);
+    if (!fechas.length) { alert('No se pudo leer el gasto por día.'); return; }
+    const values = fechas.map(f => `('${esc(f)}','META_ADS','ad_spend',${porDia[f]})`).join(',');
+    await sql(`insert into manual_metric_entries (fecha, fuente, campo, valor) values ${values}
+      on conflict (fecha, fuente, campo) do update set valor = excluded.valor, created_at = now();`);
+    const total = fechas.reduce((s,f) => s + porDia[f], 0);
+    await sql(`update integration_sync_logs set estado='conectado', ultima_sincronizacion=now(), mensaje='Sincronizado manualmente desde el CRM (${fechas.length} días, $${Math.round(total).toLocaleString('es-CL')} CLP)' where integracion='meta_ads';`);
+    await renderTracker();
+    alert(`Listo: gasto de Meta Ads actualizado para ${fechas.length} días ($${Math.round(total).toLocaleString('es-CL')} CLP).`);
+  } catch(e) {
+    console.error(e); alert('Error sincronizando Meta Ads, revisa la consola.');
+  } finally {
+    btn.textContent = original; btn.disabled = false;
+  }
+});
+document.getElementById('closeNewCall').onclick = () => document.getElementById('newCallOverlay').classList.remove('open');
+document.getElementById('newCallOverlay').addEventListener('click', e => { if (e.target.id==='newCallOverlay') e.currentTarget.classList.remove('open'); });
+document.getElementById('btnSaveNewCall').addEventListener('click', async () => {
+  const leadId = document.getElementById('ncLead').value;
+  const fecha = document.getElementById('ncFecha').value;
+  const hora = document.getElementById('ncHora').value.trim();
+  const closerId = document.getElementById('ncCloser').value;
+  if (!leadId || !fecha) { alert('Elige un lead y una fecha'); return; }
+  await sql(`insert into calls (lead_id, fecha, hora, closer_id, estado) values ('${esc(leadId)}', '${esc(fecha)}', '${esc(hora)}', ${closerId?`'${esc(closerId)}'`:'null'}, 'LLAMADA AGENDADA');`);
+  await sql(`update leads set estado='LLAMADA AGENDADA', fecha_proxima_accion='${esc(fecha)}', proxima_accion='Llamada agendada' where id='${esc(leadId)}';`);
+  await sql(`insert into touchpoints (lead_id, texto, tipo) values ('${esc(leadId)}', 'Llamada agendada para ${esc(fecha)} ${esc(hora)}', 'llamada');`);
+  document.getElementById('newCallOverlay').classList.remove('open');
+  await refreshAll();
+});
+
+// ---------- PAGOS ----------
+function renderPayments(){
+  const total = payments.reduce((s,p) => s + p.monto, 0);
+  const yaPagado = payments.filter(p=>p.estado==="Pagada").reduce((s,p) => s + p.monto, 0);
+  const pendienteCobrar = payments.filter(p=>p.estado!=="Pagada").reduce((s,p) => s + p.monto, 0);
+  const atrasadas = payments.filter(p => p.estado === "Atrasada").length;
+  const porVencer = payments.filter(p => p.estado === "Por vencer").length;
+  document.getElementById('paymentKpis').innerHTML = [
+    {n: '$'+total.toLocaleString('es-CL'), l:"Total facturado"},
+    {n: '$'+yaPagado.toLocaleString('es-CL'), l:"Ya pagado", cls:"good"},
+    {n: '$'+pendienteCobrar.toLocaleString('es-CL'), l:"Pendiente por cobrar", cls:"alert"},
+    {n: porVencer, l:"Cuotas por vencer"}, {n: atrasadas, l:"Cuotas atrasadas", cls: atrasadas?"alert":""},
+    {n: payments.filter(p=>p.estado==="Pagada").length, l:"Pagos ya cobrados"}
+  ].map(c => `<div class="kpi-card ${c.cls||''}"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`).join('');
+
+  const enCuotas = payments.filter(p => p.total_cuotas > 1);
+  const completo = payments.filter(p => p.total_cuotas === 1 || p.total_cuotas == null);
+
+  document.getElementById('paymentsCuotasBody').innerHTML = enCuotas.map(p => `
+    <tr><td>${p.cliente}</td><td>${p.producto||'—'}</td><td>${p.cuota}</td><td>$${p.monto}</td>
+    <td>${fmtDateOnly(p.vence)}</td>
+    <td><select class="fi" onchange="updatePayment('${p.id}',this.value)">${["Por vencer","Pagada","Atrasada"].map(e=>`<option ${e===p.estado?'selected':''}>${e}</option>`).join('')}</select></td></tr>`).join('') || '<tr><td colspan="6" style="color:#8A6E5A;font-size:12px;">Sin pagos en cuotas.</td></tr>';
+
+  document.getElementById('paymentsCompletoBody').innerHTML = completo.map(p => `
+    <tr><td>${p.cliente}</td><td>${p.producto||'—'}</td><td>$${p.monto}</td>
+    <td>${fmtDateOnly(p.vence)}</td>
+    <td><select class="fi" onchange="updatePayment('${p.id}',this.value)">${["Por vencer","Pagada","Atrasada"].map(e=>`<option ${e===p.estado?'selected':''}>${e}</option>`).join('')}</select></td></tr>`).join('') || '<tr><td colspan="5" style="color:#8A6E5A;font-size:12px;">Sin pagos completos.</td></tr>';
+}
+window.updatePayment = async function(id, estado){
+  await sql(`update payments set estado='${esc(estado)}', pagado_at=${estado==='Pagada'?'now()':'null'} where id='${esc(id)}';`);
+  await loadPayments();
+  renderPayments(); renderCalendario(); renderKpis();
+};
+
+// ---------- POST-VENTA ----------
+function renderPostventaKpis(){
+  const clientesActivos = clients.filter(c => ["ACTIVO","AVANZANDO","CERCA DE FINALIZAR"].includes(c.estado_success)).length;
+  const nuevosClientes = clients.filter(c => c.fecha_creacion && (new Date() - c.fecha_creacion) < 7*86400000).length;
+  const onboardingPend = clients.filter(c => !c.onboarding_done).length;
+  const checkins = clients.filter(c => c.necesita_checkin).length;
+  const sinActividad = clients.filter(c => c.estado_success === "SIN ACTIVIDAD").length;
+  const enRiesgo = clients.filter(c => c.semaforo === "rojo").length;
+  const cercaFinalizar = clients.filter(c => c.estado_success === "CERCA DE FINALIZAR").length;
+  const testimonios = clients.filter(c => c.testimonio_status === "TESTIMONIO POTENCIAL").length;
+  const cuotasPend = payments.filter(p => p.estado !== "Pagada").length;
+  const cards = [
+    {n: clientesActivos, l:"Clientes activos", cls:"good"}, {n: nuevosClientes, l:"Nuevos clientes (7 días)", cls:""},
+    {n: onboardingPend, l:"Onboarding pendiente", cls:"alert"}, {n: checkins, l:"Check-ins para hoy", cls:""},
+    {n: sinActividad, l:"Sin actividad", cls:"alert"}, {n: enRiesgo, l:"En riesgo", cls:"alert"},
+    {n: cercaFinalizar, l:"Cerca de finalizar", cls:""}, {n: testimonios, l:"Testimonios potenciales", cls:"good"},
+    {n: cuotasPend, l:"Cuotas pendientes", cls:""},
+  ];
+  document.getElementById('successKpis').innerHTML = cards.map(c =>
+    `<div class="kpi-card ${c.cls}"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`).join('');
+}
+function renderPostventaPriority(){
+  const rows = [
+    {cls:"urgent", tag:"Urgente", txt: `${clients.filter(c=>c.semaforo==="rojo").length} clientes en riesgo`},
+    {cls:"now", tag:"Hoy", txt: `${clients.filter(c=>c.necesita_checkin).length} check-ins pendientes`},
+    {cls:"", tag:"Onboarding", txt: `${clients.filter(c=>!c.onboarding_done).length} clientes nuevos necesitan bienvenida completa`},
+    {cls:"", tag:"Renovación / siguiente paso", txt: `${clients.filter(c=>c.estado_success==="CERCA DE FINALIZAR").length} clientes cerca de finalizar su programa`},
+    {cls:"", tag:"Testimonios", txt: `${clients.filter(c=>c.testimonio_status==="TESTIMONIO POTENCIAL").length} clientas con buenos resultados, podrían dar testimonio`},
+  ];
+  document.getElementById('successPriority').innerHTML = rows.map(r =>
+    `<div class="priority-row ${r.cls}"><span class="tag">${r.tag}</span><span class="txt">${r.txt}</span></div>`).join('');
+}
+function renderClientsTable(list){
+  document.getElementById('clientsBody').innerHTML = list.map(c => `
+    <tr onclick="openModal('${c.id}')">
+      <td>${c.nombre}</td><td>${c.producto||'—'}</td><td>${c.estado_success}</td>
+      <td><span class="semaforo-dot ${c.semaforo}"></span>${c.semaforo}</td>
+      <td>${c.health_score} <span class="health-bar-track"><span class="health-bar-fill" style="width:${c.health_score}%;background:${c.semaforo==='verde'?'#2E7D32':c.semaforo==='amarillo'?'#E0A314':'#C0392B'}"></span></span></td>
+      <td>${fmt(c.ultima_interaccion)}</td><td>${c.proxima_accion_success||'—'}</td>
+    </tr>`).join('');
+}
+function applyClientFilters(){
+  const fp = document.getElementById('fProducto').value;
+  const fe = document.getElementById('fEstadoSuccess').value;
+  const fs = document.getElementById('fSemaforo').value;
+  renderClientsTable(clients.filter(c => (!fp || c.producto===fp) && (!fe || c.estado_success===fe) && (!fs || c.semaforo===fs)));
+}
+['fProducto','fEstadoSuccess','fSemaforo'].forEach(id => document.getElementById(id).addEventListener('input', applyClientFilters));
+function renderPostventa(){ renderPostventaKpis(); renderPostventaPriority(); renderClientsTable(clients); }
+
+// ---------- SUCCESS TRACKER ----------
+let trackerSource = "";
+let trackerPeriod = "weekly";
+let trackerPanelMode = null;
+function periodWindowDays(){ return trackerPeriod === "daily" ? 1 : trackerPeriod === "weekly" ? 7 : 30; }
+function trackerFilteredLeads(){
+  const days = periodWindowDays();
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+  return leads.filter(l => l.fecha_creacion >= cutoff && (!trackerSource || l.origen === trackerSource || l.canal === trackerSource));
+}
+async function getAdSpend(days, fuente){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+  const rows = await sql(`select coalesce(sum(valor),0) as total from manual_metric_entries where campo='ad_spend' and fecha >= '${cutoff.toISOString().slice(0,10)}' ${fuente? `and fuente='${esc(fuente)}'`:''};`);
+  return rows && rows[0] ? toNum(rows[0].total) : 0;
+}
+async function computeTrackerKpis(fSet, days, fuente){
+  const adSpend = await getAdSpend(days, fuente);
+  const leadsN = fSet.length;
+  const whatsapp = fSet.filter(l => l.estado !== "NUEVO - SIN CONTACTAR").length;
+  const bookings = fSet.filter(l => ["LLAMADA AGENDADA","LLAMADA REALIZADA","NO SHOW"].includes(l.estado));
+  const mqb = fSet.filter(l => l.temperatura === "HOT" || l.temperatura === "WARM");
+  const qb = bookings.filter(l => l.temperatura === "HOT");
+  const shows = bookings.filter(l => l.estado === "LLAMADA REALIZADA");
+  const qbsu = qb.filter(l => l.estado === "LLAMADA REALIZADA");
+  const sales = fSet.filter(l => l.temperatura === "CLIENTE");
+  const revenue = sales.reduce((s,l) => s + (l.monto || 0), 0);
+  const cashUpfront = Math.round(revenue * 0.55);
+  const totalCash = Math.round(cashUpfront * 1.2);
+  return {
+    adSpend, leads: leadsN, cpl: leadsN ? adSpend/leadsN : 0, whatsapp, bookings: bookings.length, mqb: mqb.length,
+    cpMqb: mqb.length ? adSpend/mqb.length : 0, qb: qb.length, shows: shows.length,
+    showRate: bookings.length ? (shows.length/bookings.length*100) : 0, qbsu: qbsu.length,
+    cpQbsu: qbsu.length ? adSpend/qbsu.length : 0, sales: sales.length, closeRate: shows.length ? (sales.length/shows.length*100) : 0,
+    cac: sales.length ? adSpend/sales.length : 0, revenue, roas: adSpend ? revenue/adSpend : 0, roiRevenue: adSpend ? revenue/adSpend : 0,
+    cashUpfront, pctCashUpfront: revenue ? (cashUpfront/revenue*100) : 0, aovCash: sales.length ? cashUpfront/sales.length : 0, totalCash,
+    _sets: {bookings, mqb, qb, shows, qbsu, sales}
+  };
+}
+function fmtVal(key, val){
+  if (["adSpend","cpl","cpMqb","cpQbsu","cac","revenue","cashUpfront","aovCash","totalCash"].includes(key)) return "$" + Math.round(val).toLocaleString('es-CL');
+  if (["showRate","closeRate","pctCashUpfront"].includes(key)) return val.toFixed(1) + "%";
+  if (key === "roas" || key === "roiRevenue") return val.toFixed(2) + "x";
+  return Math.round(val);
+}
+let lastTrackerKpis = null;
+async function renderTracker(){
+  const fSet = trackerFilteredLeads();
+  const days = periodWindowDays();
+  const kpis = await computeTrackerKpis(fSet, days, trackerSource);
+  lastTrackerKpis = kpis;
+  const prevCutoffEnd = new Date(); prevCutoffEnd.setDate(prevCutoffEnd.getDate() - days);
+  const prevCutoffStart = new Date(); prevCutoffStart.setDate(prevCutoffStart.getDate() - days*2);
+  const prevSet = leads.filter(l => l.fecha_creacion >= prevCutoffStart && l.fecha_creacion < prevCutoffEnd && (!trackerSource || l.origen === trackerSource || l.canal === trackerSource));
+  const prevKpis = await computeTrackerKpis(prevSet, days, trackerSource);
+
+  document.getElementById('trackerKpis').innerHTML = KPI_DEFS.map(d => {
+    const val = kpis[d.key]; const prevVal = prevKpis[d.key];
+    let cmpHtml = '';
+    if (prevVal && prevVal > 0) {
+      const diff = ((val - prevVal) / prevVal) * 100;
+      cmpHtml = `<div class="cmp ${diff>=0?'up':'down'}">${diff>=0?'↑':'↓'} ${Math.abs(diff).toFixed(0)}% vs período anterior</div>`;
+    } else { cmpHtml = `<div class="sub2">sin dato comparable aún</div>`; }
+    return `<div class="t-kpi" onclick="openTrackerDrill('${d.key}')" title="${d.formula} — Fuente: ${d.fuente}">
+      <div class="lbl">${d.label} <span class="qmark">?</span></div>
+      <div class="val">${fmtVal(d.key, val)}</div>${cmpHtml}
+    </div>`;
+  }).join('');
+
+  const sinContactar = fSet.filter(l => l.estado === "NUEVO - SIN CONTACTAR").length;
+  const hotSinSeguir = leads.filter(l => l.temperatura === "HOT" && ["MENSAJE DEL LEAD SIN RESPONDER","SEGUIMIENTO ATRASADO"].includes(l.estado)).length;
+  const sinResponder = fSet.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER").length;
+  const followAtrasado = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO").length;
+  document.getElementById('trackerContext').innerHTML = [
+    {cls: sinContactar>0?"urgent":"", txt:`${sinContactar} leads sin contactar en este período`},
+    {cls: hotSinSeguir>0?"urgent":"", txt:`${hotSinSeguir} leads HOT sin seguimiento en todo el CRM`},
+    {cls: sinResponder>0?"now":"", txt:`${sinResponder} mensajes de leads de este período sin responder`},
+    {cls: followAtrasado>0?"now":"", txt:`${followAtrasado} follow-ups atrasados en todo el CRM`},
+  ].map(r => `<div class="priority-row ${r.cls}"><span class="txt">${r.txt}</span></div>`).join('');
+
+  const stages = [{label:"Entradas", n: kpis.leads},{label:"WhatsApp", n: kpis.whatsapp},{label:"MQB", n: kpis.mqb},
+    {label:"Bookings", n: kpis.bookings},{label:"Quality Bookings", n: kpis.qb},{label:"Shows", n: kpis.shows},{label:"Sales", n: kpis.sales}];
+  const maxN = Math.max(1, stages[0].n);
+  document.getElementById('funnelBars').innerHTML = stages.map((s,i) => {
+    const pct = Math.round((s.n / maxN) * 100);
+    const conv = i>0 && stages[i-1].n ? ((s.n/stages[i-1].n)*100).toFixed(0)+'%' : '—';
+    return `<div class="funnel-row"><div class="funnel-label">${s.label}</div>
+      <div class="funnel-track"><div class="funnel-fill" style="width:${Math.max(pct,4)}%">${s.n}</div></div>
+      <div class="funnel-conv">${conv}</div></div>`;
+  }).join('');
+
+  const rowsSrc = [];
+  for (const o of ORIGENS){
+    const items = fSet.filter(l => l.origen === o);
+    const k = await computeTrackerKpis(items, days, o);
+    rowsSrc.push(`<tr><td>${o}</td><td>${items.length}</td><td>${k.whatsapp}</td><td>${k.mqb}</td><td>${k.bookings}</td><td>${k.shows}</td><td>${k.sales}</td><td>$${k.revenue.toLocaleString('es-CL')}</td></tr>`);
+  }
+  document.getElementById('sourceTableBody').innerHTML = rowsSrc.join('');
+
+  const logs = await sql(`select integracion, estado, ultima_sincronizacion, mensaje from integration_sync_logs order by integracion;`);
+  document.getElementById('dqGrid').innerHTML = logs.map(d =>
+    `<div class="dq-card"><div class="name">${d.integracion} <span>${d.estado==='conectado'?'✅':d.estado==='error'?'❌':'⚠️'}</span></div>
+     <div class="sync">${d.mensaje||''}${d.ultima_sincronizacion? ' · última sync: '+fmt(new Date(d.ultima_sincronizacion)) : ''}</div></div>`
+  ).join('') + `<div class="dq-issues">Ad Spend "General" viene en vivo de Meta Ads vía Windsor.ai al sincronizar (botón arriba). El desglose por origen aún no tiene atribución de campaña, así que ahí sale $0. El resto (leads, llamadas, ventas, pagos) sale en vivo de la base real.</div>`;
+}
+window.openTrackerDrill = async function(key){
+  const fSet = trackerFilteredLeads();
+  const kpis = lastTrackerKpis || await computeTrackerKpis(fSet, periodWindowDays(), trackerSource);
+  const map = { leads: fSet, whatsapp: fSet.filter(l=>l.estado!=="NUEVO - SIN CONTACTAR"),
+    mqb: kpis._sets.mqb, bookings: kpis._sets.bookings, qb: kpis._sets.qb, shows: kpis._sets.shows, qbsu: kpis._sets.qbsu, sales: kpis._sets.sales };
+  const list = map[key] || fSet;
+  const def = KPI_DEFS.find(d => d.key === key);
+  document.getElementById('drillTitle').textContent = def ? def.label : key;
+  document.getElementById('drillSub').textContent = `${list.length} personas · ${def ? def.formula : ''}`;
+  document.getElementById('drillBody').innerHTML = list.map(l => `
+    <tr onclick="document.getElementById('drillOverlay').classList.remove('open'); openModal('${l.id}')">
+      <td>${l.nombre}</td><td>${l.origen||'—'}</td><td>${l.estado}</td><td>${l.responsable||'—'}</td><td>${l.producto||'—'}</td><td>${l.monto?'$'+l.monto:'—'}</td>
+    </tr>`).join('');
+  document.getElementById('drillOverlay').classList.add('open');
+};
+document.getElementById('closeDrill').onclick = () => document.getElementById('drillOverlay').classList.remove('open');
+document.getElementById('drillOverlay').addEventListener('click', e => { if (e.target.id==='drillOverlay') e.currentTarget.classList.remove('open'); });
+document.querySelectorAll('#sourceFilter .seg').forEach(seg => seg.addEventListener('click', () => {
+  document.querySelectorAll('#sourceFilter .seg').forEach(s => s.classList.remove('active')); seg.classList.add('active'); trackerSource = seg.dataset.src; renderTracker();
+}));
+document.querySelectorAll('#periodFilter .seg').forEach(seg => seg.addEventListener('click', () => {
+  document.querySelectorAll('#periodFilter .seg').forEach(s => s.classList.remove('active')); seg.classList.add('active'); trackerPeriod = seg.dataset.period; renderTracker();
+}));
+document.getElementById('btnExplain').addEventListener('click', () => {
+  const panel = document.getElementById('recsPanel');
+  if (trackerPanelMode === 'defs' && panel.style.display !== 'none') { panel.style.display = 'none'; trackerPanelMode = null; return; }
+  panel.innerHTML = `<h5>Explicación de KPIs</h5>` + KPI_DEFS.map(d => `<div style="margin-bottom:7px;"><b>${d.label}:</b> ${d.formula}. <span style="color:#8A6E5A">Fuente: ${d.fuente}</span></div>`).join('');
+  panel.style.display = 'block'; trackerPanelMode = 'defs';
+});
+document.getElementById('btnRecs').addEventListener('click', async () => {
+  const panel = document.getElementById('recsPanel');
+  if (trackerPanelMode === 'recs' && panel.style.display !== 'none') { panel.style.display = 'none'; trackerPanelMode = null; return; }
+  const fSet = trackerFilteredLeads();
+  const k = lastTrackerKpis || await computeTrackerKpis(fSet, periodWindowDays(), trackerSource);
+  const problems = []; const opportunities = []; const actions = [];
+  if (k.showRate < 60 && k.bookings > 0) problems.push(`Show Up Rate de ${k.showRate.toFixed(0)}%, bajo el ideal (~70-80%).`);
+  if (k.closeRate < 25 && k.shows > 0) problems.push(`Close Rate de ${k.closeRate.toFixed(0)}% sobre los shows del período.`);
+  const hotSinSeguir = leads.filter(l => l.temperatura === "HOT" && ["MENSAJE DEL LEAD SIN RESPONDER","SEGUIMIENTO ATRASADO"].includes(l.estado)).length;
+  if (hotSinSeguir > 0) problems.push(`${hotSinSeguir} leads HOT sin seguimiento — correlación posible con bookings más bajos, no causalidad confirmada.`);
+  if (k.leads < 5) problems.push(`Muestra pequeña (${k.leads} leads en este período/fuente) — cualquier lectura porcentual acá es poco confiable todavía.`);
+  if (hotSinSeguir > 0) actions.push(`Escribir hoy a los ${hotSinSeguir} leads HOT sin seguimiento.`);
+  if (k.showRate < 60 && k.bookings > 0) actions.push(`Agregar recordatorio 2 horas antes de cada llamada agendada.`);
+  panel.innerHTML = `<h5>Lectura de esta ventana de datos (basada en reglas, no en un modelo de IA todavía)</h5>
+    ${problems.length ? `<b>Problemas</b><ul>${problems.slice(0,3).map(p=>`<li>${p}</li>`).join('')}</ul>` : ''}
+    ${opportunities.length ? `<b>Oportunidades</b><ul>${opportunities.slice(0,3).map(p=>`<li>${p}</li>`).join('')}</ul>` : ''}
+    ${actions.length ? `<b>Acciones sugeridas</b><ul>${actions.slice(0,3).map(p=>`<li>${p}</li>`).join('')}</ul>` : ''}
+    ${!problems.length && !opportunities.length && !actions.length ? '<div>No hay señales claras en esta ventana de datos.</div>' : ''}`;
+  panel.style.display = 'block'; trackerPanelMode = 'recs';
+});
+document.getElementById('btnCsv').addEventListener('click', () => {
+  const fSet = trackerFilteredLeads();
+  const header = ["nombre","telefono","origen","canal","estado","temperatura","responsable","producto","monto"];
+  const rows = fSet.map(l => [l.nombre, l.telefono, l.origen, l.canal, l.estado, l.temperatura, l.responsable, l.producto||"", l.monto||""]);
+  const csv = [header.join(","), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(","))].join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = "success_tracker_export.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ---------- REFRESH + INIT ----------
+async function refreshAll(){
+  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients()]);
+  renderKpis(); renderPriority(); renderCalendario(); applyFilters(); renderPipeline(); renderOrigins();
+  renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+}
+async function init(){
+  document.getElementById('kpiGrid').innerHTML = '<div class="loading-note">Cargando desde la base real…</div>';
+  await loadReference();
+  populateStaticSelects();
+  await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients()]);
+  renderKpis(); renderPriority(); renderCalendario(); renderLeadsTable(leads); renderPipeline(); renderOrigins();
+  renderCalls(); renderPayments(); renderPostventa(); await renderTracker();
+}
+
+// ---------- LOGIN REAL (Supabase Auth, con RLS de verdad detrás) ----------
+// El desplegable sigue mostrando nombres (para que el equipo no tenga que
+// acordarse de un email), pero cada nombre está atado a una cuenta real de
+// Supabase Auth con su propio email provisional. Sin sesión válida, RLS no
+// deja ver ni tocar ningún dato (probado: run_app_sql rechaza sin login).
+const TEAM_LOGINS = [
+  { email: 'pllorensc24@gmail.com',           nombre: 'Paula Llorens' },
+  { email: 'marie@lasriendasdetuvida.com',    nombre: 'Marie Louise' },
+  { email: 'caro@lasriendasdetuvida.com',     nombre: 'Caro Pache' },
+  { email: 'ileane@lasriendasdetuvida.com',   nombre: 'Ileane' },
+  { email: 'juan@lasriendasdetuvida.com',     nombre: 'Juan Vidal' },
+];
+let currentUser = null;
+
+function enterApp(){
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('appRoot').style.display = 'flex';
+  document.getElementById('userBadge').innerHTML = currentUser
+    ? `<b>${esc(currentUser.nombre)}</b><a onclick="logout()">Cerrar sesión</a>` : '';
+  init();
+}
+window.logout = async function(){
+  await sb.auth.signOut();
+  location.reload();
+};
+
+async function resolveCurrentUser(email){
+  const rows = await sql(`select id, nombre, rol from users where lower(email) = lower('${esc(email)}') limit 1;`);
+  return rows[0] || null;
+}
+
+async function boot(){
+  const sel = document.getElementById('loginUser');
+  sel.innerHTML = TEAM_LOGINS.map(u => `<option value="${esc(u.email)}">${esc(u.nombre)}</option>`).join('');
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user) {
+    currentUser = await resolveCurrentUser(session.user.email);
+    if (currentUser) { enterApp(); return; }
+  }
+
+  document.getElementById('btnLogin').addEventListener('click', async () => {
+    const email = sel.value;
+    const pass = document.getElementById('loginPass').value;
+    document.getElementById('loginErr').style.display = 'none';
+    document.getElementById('btnLogin').disabled = true;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    document.getElementById('btnLogin').disabled = false;
+    if (error || !data.user) {
+      document.getElementById('loginErr').textContent = 'Clave incorrecta.';
+      document.getElementById('loginErr').style.display = 'block';
+      return;
+    }
+    currentUser = await resolveCurrentUser(email);
+    enterApp();
+  });
+  document.getElementById('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnLogin').click(); });
+}
+boot();
+</script>
