@@ -1534,6 +1534,16 @@ function alertasChat(l, msgs){
       const horas = (Date.now() - fechaUltimo.getTime()) / 3600000;
       if (horas >= 24) out.push({ tipo: 'danger', txt: `el lead dejó en visto hace ${tiempoDesde(fechaUltimo)} — nadie respondió desde el último mensaje` });
       else if (horas >= 3) out.push({ tipo: 'warn', txt: `esperando respuesta del lead hace ${tiempoDesde(fechaUltimo)}` });
+    } else {
+      // Cada automatización de ManyChat termina su flujo mandando el mensaje
+      // acá (el paso de "Solicitud externa" es siempre el último nodo) — por
+      // eso, si lo último que llegó es un mensaje entrante, es un hecho real
+      // que la automatización ya no tiene más pasos programados para este
+      // lead y alguien del equipo tiene que tomarlo, no una suposición.
+      const horas = (Date.now() - fechaUltimo.getTime()) / 3600000;
+      const hace = tiempoDesde(fechaUltimo);
+      if (horas >= 1) out.push({ tipo: 'warn', txt: `automatización terminó — el lead respondió hace ${hace} y no tiene más pasos programados, requiere intervención humana` });
+      else out.push({ tipo: 'info', txt: `automatización terminó — el lead acaba de responder (${hace}), requiere intervención humana` });
     }
   }
   if (l.fecha_proxima_accion) {
@@ -1684,6 +1694,12 @@ window.usarSugerencia = function(i){
   input.value = s.msg;
   input.focus();
 };
+// Estados en los que el lead está "esperando que le contestemos" — si el
+// envío realmente funcionó, ya no corresponde que sigan ahí, porque acabamos
+// de responder. Los pasamos a "esperando respuesta del lead" (ahora la
+// pelota está en su cancha). Si el envío falla (ej: ventana de 24h de Meta),
+// el estado NO se toca, porque en los hechos seguimos sin haberle contestado.
+const ESTADOS_PENDIENTES_RESPUESTA = ['MENSAJE DEL LEAD SIN RESPONDER', 'NUEVO - SIN CONTACTAR', 'SEGUIMIENTO ATRASADO', 'TOCA SEGUIMIENTO'];
 window.enviarMensajeManychat = async function(){
   const id = currentModalId;
   const input = document.getElementById('mcMensajeInput');
@@ -1691,8 +1707,17 @@ window.enviarMensajeManychat = async function(){
   if (!texto) return;
   input.value = '';
   const { data, error } = await sb.functions.invoke('send-manychat-message', { body: { lead_id: id, texto, enviado_por: currentUser ? currentUser.id : null } });
-  if (error || (data && data.ok === false)) {
+  const fallo = error || (data && data.ok === false);
+  if (fallo) {
     alert('No se pudo enviar el mensaje: ' + (error ? error.message : JSON.stringify(data.error)));
+  } else {
+    const l = clients.find(x => x.id === id) || leads.find(x => x.id === id);
+    if (l && ESTADOS_PENDIENTES_RESPUESTA.includes(l.estado)) {
+      await sql(`update leads set estado='ESPERANDO RESPUESTA DEL LEAD', ultima_interaccion=now() where id='${esc(id)}';`);
+    } else {
+      await sql(`update leads set ultima_interaccion=now() where id='${esc(id)}';`);
+    }
+    await refreshAll();
   }
   await renderConversacion(id);
 };
