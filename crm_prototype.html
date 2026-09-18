@@ -863,12 +863,12 @@ window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${vie
 // la lógica de filtro en dos lugares distintos.
 function hoyKpiSets(){
   const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000);
-  // "Sin contactar" mostraba TODO el histórico de leads nunca contactados
-  // (acumulado de días/semanas), lo que confundía con "nuevos leads hoy" —
-  // Paula pidió (18-09) que esta tarjeta y la fila de prioridad "Ahora"
-  // solo cuenten los leads NUEVOS DE HOY que todavía no se contactaron,
-  // no el backlog completo.
-  const sinContactar = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR" && l.fecha_creacion && sameDay(l.fecha_creacion, new Date()));
+  // Se sacó la tarjeta "Sin contactar" (pedido de Paula, 18-09): ni acotada
+  // a leads de hoy reflejaba la realidad — el número no bajaba aunque los
+  // leads sí estuvieran contactados por WhatsApp/Instagram directo, porque
+  // el estado solo cambia con eventos que pasan por el CRM. Hasta que el
+  // estado del lead sea confiable de verdad, mejor no mostrar el dato que
+  // mostrar uno que confunde.
   const sinResponder = leads.filter(l => l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
   const esperando = leads.filter(l => l.estado === "ESPERANDO RESPUESTA DEL LEAD");
   const hot = leads.filter(l => l.temperatura === "HOT");
@@ -887,14 +887,13 @@ function hoyKpiSets(){
   // touchpoint cualquiera de hoy hacía aparecer una "venta" que no existió).
   const ventasHoy = leads.filter(l => l.temperatura === "CLIENTE" && sales.some(s => s.lead_id === l.id && s.fecha_venta && sameDay(s.fecha_venta, new Date())));
   const ventasMes = leads.filter(l => l.temperatura === "CLIENTE");
-  return { nuevosHoy, sinContactar, sinResponder, esperando, hot, followToday, followLate, callsToday, noShows, cuotasPend, ventasHoy, ventasMes };
+  return { nuevosHoy, sinResponder, esperando, hot, followToday, followLate, callsToday, noShows, cuotasPend, ventasHoy, ventasMes };
 }
 
 function renderKpis(){
   const sets = hoyKpiSets();
   const cards = [
     {n: sets.nuevosHoy.length, l: "Nuevos leads hoy", cls:"", key:"nuevosHoy"},
-    {n: sets.sinContactar.length, l: "Sin contactar", cls:"alert", key:"sinContactar"},
     {n: sets.sinResponder.length, l: "Mensajes sin responder", cls:"alert", key:"sinResponder"},
     {n: sets.esperando.length, l: "Esperando resp. del lead", cls:"", key:"esperando"},
     {n: sets.hot.length, l: "Leads calientes", cls:"hot", key:"hot"},
@@ -1175,16 +1174,12 @@ window.copiarResumenWhatsApp = async function(){
 
 function renderPriority(){
   const hotNoResp = leads.filter(l => l.temperatura === "HOT" && l.estado === "MENSAJE DEL LEAD SIN RESPONDER");
-  // Mismo criterio que en hoyKpiSets(): solo nuevos de hoy sin contactar,
-  // no todo el backlog acumulado (pedido de Paula, 18-09).
-  const nuevos = leads.filter(l => l.estado === "NUEVO - SIN CONTACTAR" && l.fecha_creacion && sameDay(l.fecha_creacion, new Date()));
   const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO");
   const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO");
   const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date()));
   const cuotasHoy = payments.filter(p => p.estado === "Por vencer");
   const rows = [
     {cls:"urgent", tag:"Urgente", txt: `${hotNoResp.length} leads calientes sin responder`, view:"leads"},
-    {cls:"now", tag:"Ahora", txt: `${nuevos.length} nuevos leads todavía sin contactar`, view:"leads"},
     {cls:"", tag:"Seguimiento", txt: `${followToday.length} leads a quienes corresponde escribir hoy`, view:"leads"},
     {cls:"urgent", tag:"Atrasado", txt: `${followLate.length} seguimientos atrasados`, view:"leads"},
     {cls:"", tag:"Llamadas", txt: `${callsToday.length} llamadas agendadas para hoy`, view:"llamadas"},
