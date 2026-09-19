@@ -901,7 +901,12 @@ window.goTo = function(view){ document.querySelector(`.nav-item[data-view="${vie
 // el detalle al hacer click siempre salen de la misma fuente, sin duplicar
 // la lógica de filtro en dos lugares distintos.
 function hoyKpiSets(){
-  const nuevosHoy = leads.filter(l => l.fecha_creacion && (new Date() - l.fecha_creacion) < 86400000);
+  // Antes esto era una ventana rolling de 24h (Date.now() - fecha_creacion < 86400000),
+  // por lo que nunca bajaba a 0 justo al pasar la medianoche — seguía contando leads
+  // de la tarde/noche anterior hasta que se cumplieran 24h exactas desde que entraron.
+  // Ahora compara por día calendario real (medianoche a medianoche, hora del navegador —
+  // Chile), pedido de Paula 19-09: que se reinicie a las 00:00 de cada día.
+  const nuevosHoy = leads.filter(l => l.fecha_creacion && sameDay(l.fecha_creacion, new Date()));
   // Se sacó la tarjeta "Sin contactar" (pedido de Paula, 18-09): ni acotada
   // a leads de hoy reflejaba la realidad — el número no bajaba aunque los
   // leads sí estuvieran contactados por WhatsApp/Instagram directo, porque
@@ -913,7 +918,12 @@ function hoyKpiSets(){
   const hot = leads.filter(l => l.temperatura === "HOT");
   const followToday = leads.filter(l => l.estado === "TOCA SEGUIMIENTO");
   const followLate = leads.filter(l => l.estado === "SEGUIMIENTO ATRASADO");
-  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && sameDay(c.fecha, new Date())).map(c => {
+  // Antes solo mostraba llamadas de HOY, así que una llamada agendada recién
+  // (ej. para mañana) no aparecía en el resumen de inicio aunque sí estuviera
+  // en el calendario — pedido de Paula 19-09: que las próximas llamadas se vean
+  // en el resumen apenas se agendan, no solo el mismo día. Ahora es hoy + mañana.
+  const manana = new Date(Date.now() + 86400000);
+  const callsToday = calls.filter(c => c.estado === "LLAMADA AGENDADA" && (sameDay(c.fecha, new Date()) || sameDay(c.fecha, manana))).map(c => {
     const l = leads.find(x => x.id === c.lead_id) || {};
     return { id: c.lead_id, nombre: c.lead_nombre, origen: l.origen, estado: c.estado, responsable: c.closer, producto: l.producto, monto: l.monto };
   });
@@ -938,7 +948,7 @@ function renderKpis(){
     {n: sets.hot.length, l: "Leads calientes", cls:"hot", key:"hot"},
     {n: sets.followToday.length, l: "Follow-ups para hoy", cls:"", key:"followToday"},
     {n: sets.followLate.length, l: "Follow-ups atrasados", cls:"alert", key:"followLate"},
-    {n: sets.callsToday.length, l: "Llamadas hoy", cls:"", key:"callsToday"},
+    {n: sets.callsToday.length, l: "Llamadas hoy y mañana", cls:"", key:"callsToday"},
     {n: sets.noShows.length, l: "No-shows por recuperar", cls:"alert", key:"noShows"},
     {n: sets.cuotasPend.length, l: "Cuotas pendientes", cls:"", key:"cuotasPend"},
     {n: sets.ventasHoy.length, l: "Ventas hoy", cls:"good", key:"ventasHoy"},
