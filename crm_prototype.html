@@ -314,22 +314,22 @@
   /* BASELINE COMERCIAL */
   .bl-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:#5B3A29; }
   .bl-controls input { border:1px solid #EADFD3; border-radius:6px; padding:6px 8px; font-size:12px; margin-left:4px; }
-  .bl-wrap { background:#0D0D0F; border-radius:14px; padding:22px 22px 18px; color:#F4EFE8; }
+  .bl-wrap { background:#F7F3EF; border:1px solid #EADFD3; border-radius:14px; padding:20px 20px 16px; color:#3A2E28; }
   .bl-head { text-align:center; margin-bottom:18px; }
-  .bl-head h3 { margin:0; font-family:Georgia,serif; font-size:26px; color:#F4EFE8; }
-  .bl-head h3 span { color:#E0343B; }
-  .bl-head .per { letter-spacing:2px; font-size:11px; color:#C9B98E; margin-top:6px; text-transform:uppercase; }
+  .bl-head h3 { margin:0; font-family:Georgia,serif; font-size:24px; color:#5B3A29; }
+  .bl-head h3 span { color:#8A6E5A; }
+  .bl-head .per { letter-spacing:1.5px; font-size:11px; color:#8A6E5A; margin-top:6px; text-transform:uppercase; }
   .bl-row { display:grid; gap:10px; margin-bottom:10px; }
   .bl-row.r4 { grid-template-columns:repeat(4,1fr); }
   .bl-row.r5 { grid-template-columns:repeat(5,1fr); }
-  .bl-card { background:#17161A; border:1px solid #5A1F24; border-radius:12px; padding:14px 16px; }
-  .bl-card.gold { border-color:#6B5A2E; }
-  .bl-card .l { font-size:12px; color:#CFC6B8; }
-  .bl-card .v { font-family:Georgia,serif; font-size:28px; font-weight:700; margin-top:4px; color:#fff; }
-  .bl-card .v.sm { font-size:17px; margin-top:10px; }
-  .bl-card .s { font-size:10.5px; color:#8F887C; margin-top:3px; }
-  .bl-note { background:#17161A; border:1px solid #5A1F24; border-radius:12px; padding:14px 18px; font-size:13px; line-height:1.5; color:#CFC6B8; }
-  .bl-note b { color:#E0343B; }
+  .bl-card { background:white; border:1px solid #EADFD3; border-radius:10px; padding:12px 14px; }
+  .bl-card.gold { background:#FBF6F0; }
+  .bl-card .l { font-size:11px; color:#8A6E5A; text-transform:uppercase; letter-spacing:.3px; }
+  .bl-card .v { font-size:24px; font-weight:800; margin-top:5px; color:#5B3A29; line-height:1.1; }
+  .bl-card .v.sm { font-size:15px; margin-top:8px; }
+  .bl-card .s { font-size:10.5px; color:#B7A594; margin-top:4px; }
+  .bl-note { background:white; border:1px solid #EADFD3; border-left:4px solid #5B3A29; border-radius:10px; padding:12px 16px; font-size:13px; line-height:1.5; color:#6B5B4E; }
+  .bl-note b { color:#5B3A29; }
   @media (max-width:900px){ .bl-row.r4,.bl-row.r5 { grid-template-columns:repeat(2,1fr); } }
 </style>
 
@@ -2476,7 +2476,7 @@ async function renderBaseline(){
   const desde = document.getElementById('blFrom').value, hasta = document.getElementById('blTo').value;
   const wrap = document.getElementById('blWrap');
   if (!desde || !hasta){ alert('Elige fecha de inicio y de fin.'); return; }
-  wrap.innerHTML = '<div class="loading-note" style="color:#CFC6B8">Calculando…</div>';
+  wrap.innerHTML = '<div class="loading-note">Calculando…</div>';
   try {
     const callsRows = await sql(`select c.estado, l.canal from calls c join leads l on l.id = c.lead_id where c.fecha >= '${esc(desde)}' and c.fecha <= '${esc(hasta)}';`);
     const salesRows = await sql(`select s.monto_total, l.canal, l.telefono from sales s join leads l on l.id = s.lead_id where s.fecha_venta >= '${esc(desde)}' and s.fecha_venta <= '${esc(hasta)} 23:59:59';`);
@@ -2544,7 +2544,7 @@ async function renderBaseline(){
     blLastText = `Baseline comercial · ${fd(desde)} – ${fd(hasta)}\nFacturación total: ${money(revenue)} | Inversión Meta: ${spend?money(spend):'—'} | ROAS total: ${spend?d1(roasT)+'x':'—'} | ROAS Meta: ${spend?d1(roasM)+'x':'—'}\nBookings totales: ${bookings} | Bookings Meta: ${bookingsMeta} | Show-up: ${showUp?Math.round(showUp)+'%':'—'} | Ventas totales: ${ventas} | Ventas Meta: ${ventasMeta}\nCosto por booking Meta: ${cpb?money(cpb):'—'} | CAC Meta: ${cac?money(cac):'—'} | Ticket promedio: ${ventas?money(ticket):'—'} | Mercado: ${mercado}`;
   } catch(e) {
     console.error(e);
-    wrap.innerHTML = '<div class="loading-note" style="color:#CFC6B8">Error calculando — revisa la consola.</div>';
+    wrap.innerHTML = '<div class="loading-note">Error calculando — revisa la consola.</div>';
   }
 }
 document.getElementById('btnBlApply').addEventListener('click', renderBaseline);
