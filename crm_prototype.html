@@ -602,6 +602,8 @@
       <div class="bl-controls">
         <label>Desde <input type="date" id="blFrom"></label>
         <label>Hasta <input type="date" id="blTo"></label>
+        <label title="El gasto de Meta está en CLP y las ventas en USD">Tipo de cambio (CLP por USD) <input type="number" id="blRate" value="950" style="width:80px"></label>
+        <label title="Hoy ningún lead guarda de qué anuncio vino; si todo tu tráfico pagado es Meta, esto asigna todo a Meta"><input type="checkbox" id="blAssume" checked style="margin-right:4px">Asumir que todo viene de Meta ads</label>
         <button class="btn-primary" id="btnBlApply">Calcular</button>
         <button class="btn-ghost" id="btnBlCopy">📋 Copiar resumen</button>
       </div>
@@ -2465,7 +2467,7 @@ function initBaseline(){
   if (nav) nav.style.display = blEsFull() ? '' : 'none';
   if (!blInit && blEsFull()){
     blInit = true;
-    document.getElementById('blFrom').value = '2026-04-06';
+    document.getElementById('blFrom').value = '2026-08-01';
     document.getElementById('blTo').value = new Date().toISOString().slice(0,10);
   }
 }
@@ -2480,8 +2482,11 @@ async function renderBaseline(){
     const salesRows = await sql(`select s.monto_total, l.canal, l.telefono from sales s join leads l on l.id = s.lead_id where s.fecha_venta >= '${esc(desde)}' and s.fecha_venta <= '${esc(hasta)} 23:59:59';`);
     const spendRows = await sql(`select coalesce(sum(valor),0) as total, count(distinct fecha) as dias, min(fecha) as primero, max(fecha) as ultimo from manual_metric_entries where campo='ad_spend' and fuente='META_ADS' and fecha >= '${esc(desde)}' and fecha <= '${esc(hasta)}';`);
     const sp = spendRows[0] || {};
-    const spend = toNum(sp.total) || 0, diasGasto = Number(sp.dias) || 0;
-    const isMeta = r => BL_META.includes(r.canal);
+    const rate = Number(document.getElementById('blRate').value) || 0;
+    const assume = document.getElementById('blAssume').checked;
+    const spendCLP = toNum(sp.total) || 0, diasGasto = Number(sp.dias) || 0;
+    const spend = rate ? spendCLP/rate : 0;   // gasto Meta convertido a USD (las ventas están en USD)
+    const isMeta = r => assume || BL_META.includes(r.canal);
     const bookings = callsRows.length, bookingsMeta = callsRows.filter(isMeta).length;
     const shows = callsRows.filter(r => r.estado === 'LLAMADA REALIZADA').length;
     const noShows = callsRows.filter(r => r.estado === 'NO SHOW').length;
@@ -2516,13 +2521,13 @@ async function renderBaseline(){
       <div class="bl-head"><h3>Baseline <span>comercial</span></h3><div class="per">Período analizado: ${fd(desde)} – ${fd(hasta)} ${new Date(hasta+'T00:00:00').getFullYear()}</div></div>
       <div class="bl-row r4">
         ${card('Facturación total', money(revenue), ventas + ' ventas')}
-        ${card('Inversión Meta', spend ? money(spend) : '—', spend ? diasGasto + ' días con gasto cargado' : 'sin gasto cargado', true)}
+        ${card('Inversión Meta', spend ? money(spend) : '—', spend ? diasGasto + ' días con gasto · $' + Math.round(spendCLP).toLocaleString('es-CL') + ' CLP' : 'sin gasto cargado', true)}
         ${card('ROAS total', spend ? d1(roasT)+'x' : '—', '')}
-        ${card('ROAS Meta', spend ? d1(roasM)+'x' : '—', 'solo ventas de Meta', true)}
+        ${card('ROAS Meta', spend ? d1(roasM)+'x' : '—', assume ? 'asumiendo todo = Meta' : 'solo ventas de Meta', true)}
       </div>
       <div class="bl-row r5">
         ${card('Bookings totales', bookings, '')}
-        ${card('Bookings de Meta', bookingsMeta, '', true)}
+        ${card('Bookings de Meta', bookingsMeta, assume ? 'asumiendo todo = Meta' : '', true)}
         ${card('Show-up', showUp ? Math.round(showUp)+'%' : '—', shows + ' realizadas · ' + noShows + ' no-shows')}
         ${card('Ventas totales', ventas, '', true)}
         ${card('Ventas de Meta', ventasMeta, revenueMeta ? money(revenueMeta) + ' facturados' : '')}
@@ -2535,7 +2540,7 @@ async function renderBaseline(){
       </div>
       <div class="bl-note"><b>Lectura rápida:</b> ${msgs.join(' ')} La prioridad es ${prio.join(', ')}.</div>`;
     const dias = Math.round((new Date(hasta) - new Date(desde))/86400000) + 1;
-    document.getElementById('blFoot').innerHTML = `Meta = leads con canal DM_ADS o VSL_ADS (${sinCanal} de ${bookings} bookings no tienen canal asignado y cuentan solo en los totales). Bookings = llamadas del rango; ventas y facturación = ventas registradas en el rango. Show-up = realizadas / (realizadas + no-shows). Inversión Meta: ${diasGasto} de ${dias} días del rango tienen gasto cargado${diasGasto < dias ? ' — si faltan días, ROAS, CAC y costo por booking salen inflados; hay que sincronizar Meta Ads para el resto' : ''}.`;
+    document.getElementById('blFoot').innerHTML = `${assume ? 'Meta = todo (marcaste "asumir que todo viene de Meta ads"; hoy ningún lead guarda la campaña de origen).' : `Meta = leads con canal DM_ADS o VSL_ADS (${sinCanal} de ${bookings} bookings no tienen canal asignado y cuentan solo en los totales).`} El gasto de Meta está en CLP y se convierte a USD con el tipo de cambio de arriba, porque las ventas están en USD. Bookings = llamadas del rango; ventas y facturación = ventas registradas en el rango. Show-up = realizadas / (realizadas + no-shows). Inversión Meta: ${diasGasto} de ${dias} días del rango tienen gasto cargado${diasGasto < dias ? ' — si faltan días, ROAS, CAC y costo por booking salen inflados; hay que sincronizar Meta Ads para el resto' : ''}. El CRM solo tiene llamadas y ventas desde agosto de 2026: lo anterior no está cargado.`;
     blLastText = `Baseline comercial · ${fd(desde)} – ${fd(hasta)}\nFacturación total: ${money(revenue)} | Inversión Meta: ${spend?money(spend):'—'} | ROAS total: ${spend?d1(roasT)+'x':'—'} | ROAS Meta: ${spend?d1(roasM)+'x':'—'}\nBookings totales: ${bookings} | Bookings Meta: ${bookingsMeta} | Show-up: ${showUp?Math.round(showUp)+'%':'—'} | Ventas totales: ${ventas} | Ventas Meta: ${ventasMeta}\nCosto por booking Meta: ${cpb?money(cpb):'—'} | CAC Meta: ${cac?money(cac):'—'} | Ticket promedio: ${ventas?money(ticket):'—'} | Mercado: ${mercado}`;
   } catch(e) {
     console.error(e);
@@ -2543,6 +2548,8 @@ async function renderBaseline(){
   }
 }
 document.getElementById('btnBlApply').addEventListener('click', renderBaseline);
+document.getElementById('blAssume').addEventListener('change', renderBaseline);
+document.getElementById('blRate').addEventListener('change', renderBaseline);
 document.getElementById('btnBlCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(blLastText); alert('Resumen copiado.'); }
   catch(e) { prompt('Copia el resumen:', blLastText); }
