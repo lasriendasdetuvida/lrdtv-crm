@@ -310,6 +310,27 @@
   .realtime-badge.down .dot { background: #C0392B; }
   .user-badge b { color: #F3E9DE; display: block; font-size: 12px; }
   .user-badge a { color: #D8C8BC; cursor: pointer; text-decoration: underline; }
+
+  /* BASELINE COMERCIAL */
+  .bl-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:#5B3A29; }
+  .bl-controls input { border:1px solid #EADFD3; border-radius:6px; padding:6px 8px; font-size:12px; margin-left:4px; }
+  .bl-wrap { background:#0D0D0F; border-radius:14px; padding:22px 22px 18px; color:#F4EFE8; }
+  .bl-head { text-align:center; margin-bottom:18px; }
+  .bl-head h3 { margin:0; font-family:Georgia,serif; font-size:26px; color:#F4EFE8; }
+  .bl-head h3 span { color:#E0343B; }
+  .bl-head .per { letter-spacing:2px; font-size:11px; color:#C9B98E; margin-top:6px; text-transform:uppercase; }
+  .bl-row { display:grid; gap:10px; margin-bottom:10px; }
+  .bl-row.r4 { grid-template-columns:repeat(4,1fr); }
+  .bl-row.r5 { grid-template-columns:repeat(5,1fr); }
+  .bl-card { background:#17161A; border:1px solid #5A1F24; border-radius:12px; padding:14px 16px; }
+  .bl-card.gold { border-color:#6B5A2E; }
+  .bl-card .l { font-size:12px; color:#CFC6B8; }
+  .bl-card .v { font-family:Georgia,serif; font-size:28px; font-weight:700; margin-top:4px; color:#fff; }
+  .bl-card .v.sm { font-size:17px; margin-top:10px; }
+  .bl-card .s { font-size:10.5px; color:#8F887C; margin-top:3px; }
+  .bl-note { background:#17161A; border:1px solid #5A1F24; border-radius:12px; padding:14px 18px; font-size:13px; line-height:1.5; color:#CFC6B8; }
+  .bl-note b { color:#E0343B; }
+  @media (max-width:900px){ .bl-row.r4,.bl-row.r5 { grid-template-columns:repeat(2,1fr); } }
 </style>
 
 <div class="login-overlay" id="loginOverlay">
@@ -340,6 +361,7 @@
     <div class="nav-item" data-view="pagos">💳 Pagos</div>
     <div class="nav-item" data-view="postventa">🌱 Post-venta</div>
     <div class="nav-item" data-view="tracker">📈 Success Tracker</div>
+    <div class="nav-item" id="navBaseline" data-view="baseline" style="display:none">🎯 Baseline comercial</div>
     <div class="nav-item" data-view="comisiones">💰 Comisiones</div>
     <div class="user-badge" id="userBadge"></div>
   </div>
@@ -573,6 +595,18 @@
 
       <div class="section-title">Calidad de datos y sincronización</div>
       <div class="dq-grid" id="dqGrid"></div>
+    </div>
+
+    <!-- BASELINE COMERCIAL -->
+    <div class="view" id="view-baseline">
+      <div class="bl-controls">
+        <label>Desde <input type="date" id="blFrom"></label>
+        <label>Hasta <input type="date" id="blTo"></label>
+        <button class="btn-primary" id="btnBlApply">Calcular</button>
+        <button class="btn-ghost" id="btnBlCopy">📋 Copiar resumen</button>
+      </div>
+      <div class="bl-wrap" id="blWrap"><div class="loading-note">Elige fechas y pulsa Calcular.</div></div>
+      <div class="demo-banner" style="margin-top:12px" id="blFoot"></div>
     </div>
 
     <!-- COMISIONES -->
@@ -2413,6 +2447,107 @@ document.getElementById('btnCalcularFunnelPersonalizado').addEventListener('clic
     out.innerHTML = '<div class="loading-note">Error calculando — revisa la consola.</div>';
   }
 });
+// ---------- BASELINE COMERCIAL (panel por rango de fechas: total vs Meta) ----------
+// Calcula contra fechas reales de eventos (calls.fecha, sales.fecha_venta, gasto META_ADS por día),
+// igual que el funnel de rango fijo del Success Tracker. "Meta" = leads con canal DM_ADS o VSL_ADS.
+const BL_META = ["DM_ADS","VSL_ADS"];
+const BL_PAISES = [["593","Ecuador"],["57","Colombia"],["56","Chile"],["52","México"],["54","Argentina"],["51","Perú"],["34","España"],["58","Venezuela"],["507","Panamá"],["506","Costa Rica"],["1","EE.UU. / Canadá"]];
+function blPais(tel){
+  const d = String(tel||'').replace(/\D/g,'');
+  if (!d) return 'Sin dato';
+  for (const [p, n] of BL_PAISES) if (d.startsWith(p) && d.length >= 9) return n;
+  return 'Sin dato';
+}
+let blInit = false, blLastText = '';
+function blEsFull(){ return !!(currentUser && ['paula','marie','mentor'].includes(currentUser.rol)); }
+function initBaseline(){
+  const nav = document.getElementById('navBaseline');
+  if (nav) nav.style.display = blEsFull() ? '' : 'none';
+  if (!blInit && blEsFull()){
+    blInit = true;
+    document.getElementById('blFrom').value = '2026-04-06';
+    document.getElementById('blTo').value = new Date().toISOString().slice(0,10);
+  }
+}
+async function renderBaseline(){
+  if (!blEsFull()) return;
+  const desde = document.getElementById('blFrom').value, hasta = document.getElementById('blTo').value;
+  const wrap = document.getElementById('blWrap');
+  if (!desde || !hasta){ alert('Elige fecha de inicio y de fin.'); return; }
+  wrap.innerHTML = '<div class="loading-note" style="color:#CFC6B8">Calculando…</div>';
+  try {
+    const callsRows = await sql(`select c.estado, l.canal from calls c join leads l on l.id = c.lead_id where c.fecha >= '${esc(desde)}' and c.fecha <= '${esc(hasta)}';`);
+    const salesRows = await sql(`select s.monto_total, l.canal, l.telefono from sales s join leads l on l.id = s.lead_id where s.fecha_venta >= '${esc(desde)}' and s.fecha_venta <= '${esc(hasta)} 23:59:59';`);
+    const spendRows = await sql(`select coalesce(sum(valor),0) as total, count(distinct fecha) as dias, min(fecha) as primero, max(fecha) as ultimo from manual_metric_entries where campo='ad_spend' and fuente='META_ADS' and fecha >= '${esc(desde)}' and fecha <= '${esc(hasta)}';`);
+    const sp = spendRows[0] || {};
+    const spend = toNum(sp.total) || 0, diasGasto = Number(sp.dias) || 0;
+    const isMeta = r => BL_META.includes(r.canal);
+    const bookings = callsRows.length, bookingsMeta = callsRows.filter(isMeta).length;
+    const shows = callsRows.filter(r => r.estado === 'LLAMADA REALIZADA').length;
+    const noShows = callsRows.filter(r => r.estado === 'NO SHOW').length;
+    const showUp = (shows + noShows) ? shows/(shows + noShows)*100 : 0;
+    const ventas = salesRows.length, ventasMeta = salesRows.filter(isMeta).length;
+    const revenue = salesRows.reduce((a,r) => a + (toNum(r.monto_total)||0), 0);
+    const revenueMeta = salesRows.filter(isMeta).reduce((a,r) => a + (toNum(r.monto_total)||0), 0);
+    const roasT = spend ? revenue/spend : 0, roasM = spend ? revenueMeta/spend : 0;
+    const cpb = bookingsMeta && spend ? spend/bookingsMeta : 0;
+    const cac = ventasMeta && spend ? spend/ventasMeta : 0;
+    const ticket = ventas ? revenue/ventas : 0;
+    const sinCanal = callsRows.filter(r => !r.canal).length;
+
+    const porPais = {};
+    salesRows.forEach(r => { const p = blPais(r.telefono); porPais[p] = (porPais[p]||0) + (toNum(r.monto_total)||0); });
+    const top = Object.entries(porPais).filter(([p]) => p !== 'Sin dato').sort((a,b) => b[1]-a[1])[0];
+    const mercado = top && revenue ? `${top[0]} · ${Math.round(top[1]/revenue*100)}% de la facturación` : 'Sin dato de país';
+
+    const money = v => '$' + Math.round(v).toLocaleString('es-CL');
+    const d1 = v => v.toLocaleString('es-CL', {minimumFractionDigits:1, maximumFractionDigits:1});
+    const fd = iso => new Date(iso + 'T00:00:00').toLocaleDateString('es-CL', {day:'numeric', month:'long'});
+    const msgs = [];
+    if (!spend) msgs.push('No hay gasto de Meta cargado en este rango, por eso no se calculan ROAS, CAC ni costo por booking.');
+    else msgs.push(roasT >= 3 ? `El negocio ya es rentable (ROAS total ${d1(roasT)}x).` : `El ROAS total (${d1(roasT)}x) todavía está bajo.`);
+    if (ventas < 30) msgs.push(`Depende de poco volumen: ${ventas} ventas en el rango.`);
+    const prio = [];
+    if (bookings < 100) prio.push('aumentar bookings');
+    if (showUp && showUp < 70) prio.push('sostener show-up');
+    prio.push('estabilizar ventas');
+    const card = (l, v, sub, gold) => `<div class="bl-card ${gold?'gold':''}"><div class="l">${l}</div><div class="v">${v}</div>${sub?`<div class="s">${sub}</div>`:''}</div>`;
+    wrap.innerHTML = `
+      <div class="bl-head"><h3>Baseline <span>comercial</span></h3><div class="per">Período analizado: ${fd(desde)} – ${fd(hasta)} ${new Date(hasta+'T00:00:00').getFullYear()}</div></div>
+      <div class="bl-row r4">
+        ${card('Facturación total', money(revenue), ventas + ' ventas')}
+        ${card('Inversión Meta', spend ? money(spend) : '—', spend ? diasGasto + ' días con gasto cargado' : 'sin gasto cargado', true)}
+        ${card('ROAS total', spend ? d1(roasT)+'x' : '—', '')}
+        ${card('ROAS Meta', spend ? d1(roasM)+'x' : '—', 'solo ventas de Meta', true)}
+      </div>
+      <div class="bl-row r5">
+        ${card('Bookings totales', bookings, '')}
+        ${card('Bookings de Meta', bookingsMeta, '', true)}
+        ${card('Show-up', showUp ? Math.round(showUp)+'%' : '—', shows + ' realizadas · ' + noShows + ' no-shows')}
+        ${card('Ventas totales', ventas, '', true)}
+        ${card('Ventas de Meta', ventasMeta, revenueMeta ? money(revenueMeta) + ' facturados' : '')}
+      </div>
+      <div class="bl-row r4">
+        ${card('Costo por booking Meta', cpb ? money(cpb) : '—', '', true)}
+        ${card('CAC Meta', cac ? money(cac) : '—', '')}
+        ${card('Ticket promedio', ventas ? money(ticket) : '—', '', true)}
+        <div class="bl-card"><div class="l">Mercado principal</div><div class="v sm">${mercado}</div></div>
+      </div>
+      <div class="bl-note"><b>Lectura rápida:</b> ${msgs.join(' ')} La prioridad es ${prio.join(', ')}.</div>`;
+    const dias = Math.round((new Date(hasta) - new Date(desde))/86400000) + 1;
+    document.getElementById('blFoot').innerHTML = `Meta = leads con canal DM_ADS o VSL_ADS (${sinCanal} de ${bookings} bookings no tienen canal asignado y cuentan solo en los totales). Bookings = llamadas del rango; ventas y facturación = ventas registradas en el rango. Show-up = realizadas / (realizadas + no-shows). Inversión Meta: ${diasGasto} de ${dias} días del rango tienen gasto cargado${diasGasto < dias ? ' — si faltan días, ROAS, CAC y costo por booking salen inflados; hay que sincronizar Meta Ads para el resto' : ''}.`;
+    blLastText = `Baseline comercial · ${fd(desde)} – ${fd(hasta)}\nFacturación total: ${money(revenue)} | Inversión Meta: ${spend?money(spend):'—'} | ROAS total: ${spend?d1(roasT)+'x':'—'} | ROAS Meta: ${spend?d1(roasM)+'x':'—'}\nBookings totales: ${bookings} | Bookings Meta: ${bookingsMeta} | Show-up: ${showUp?Math.round(showUp)+'%':'—'} | Ventas totales: ${ventas} | Ventas Meta: ${ventasMeta}\nCosto por booking Meta: ${cpb?money(cpb):'—'} | CAC Meta: ${cac?money(cac):'—'} | Ticket promedio: ${ventas?money(ticket):'—'} | Mercado: ${mercado}`;
+  } catch(e) {
+    console.error(e);
+    wrap.innerHTML = '<div class="loading-note" style="color:#CFC6B8">Error calculando — revisa la consola.</div>';
+  }
+}
+document.getElementById('btnBlApply').addEventListener('click', renderBaseline);
+document.getElementById('btnBlCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(blLastText); alert('Resumen copiado.'); }
+  catch(e) { prompt('Copia el resumen:', blLastText); }
+});
+document.querySelector('.nav-item[data-view="baseline"]').addEventListener('click', () => { if (!blLastText) renderBaseline(); });
 document.getElementById('closeNewCall').onclick = () => document.getElementById('newCallOverlay').classList.remove('open');
 document.getElementById('newCallOverlay').addEventListener('click', e => { if (e.target.id==='newCallOverlay') e.currentTarget.classList.remove('open'); });
 document.getElementById('btnSaveNewCall').addEventListener('click', async () => {
@@ -2694,7 +2829,7 @@ async function refreshAll(){
   await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs(), loadConversaciones()]);
   renderKpis(); renderPriority(); renderCalendario(); applyFilters(); renderPipeline(); renderOrigins(); applyConvoFilters();
   renderCalls(); renderPayments(); renderPostventa(); await renderTracker(); renderComisiones();
-  renderEstadoBanner(); renderDesconexion();
+  renderEstadoBanner(); renderDesconexion(); initBaseline();
 }
 async function init(){
   document.getElementById('kpiGrid').innerHTML = '<div class="loading-note">Cargando desde la base real…</div>';
@@ -2703,7 +2838,7 @@ async function init(){
   await Promise.all([loadLeads(), loadCalls(), loadPayments(), loadClients(), loadSales(), loadPendientesCriticos(), loadIntegrationLogs(), loadConversaciones()]);
   renderKpis(); renderPriority(); renderCalendario(); renderLeadsTable(leads); renderPipeline(); renderOrigins(); applyConvoFilters();
   renderCalls(); renderPayments(); renderPostventa(); await renderTracker(); renderComisiones();
-  renderEstadoBanner(); renderDesconexion();
+  renderEstadoBanner(); renderDesconexion(); initBaseline();
 }
 
 // ---------- LOGIN REAL (Supabase Auth, con RLS de verdad detrás) ----------
