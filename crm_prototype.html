@@ -624,7 +624,7 @@
       </table>
       <div class="section-title">Detalle por reserva</div>
       <table class="leads">
-        <thead><tr><th>Lead</th><th>Fecha</th><th>Origen</th><th>Llamada (marcar aquí si entró)</th><th>MQB</th><th>SQB</th><th>Show Up</th><th>Venta</th></tr></thead>
+        <thead><tr><th>Lead</th><th>Fecha</th><th>Origen</th><th>Llamada (marcar aquí si entró)</th><th>Resultado (marcar venta)</th><th>MQB</th><th>SQB</th><th>Show Up</th><th>Venta</th></tr></thead>
         <tbody id="cvDetalle"></tbody>
       </table>
     </div>
@@ -2966,16 +2966,25 @@ async function renderCadena(){
   document.getElementById('cvDetalle').innerHTML = filas.length ? filas.slice().sort((a,b) => b.c.fecha - a.c.fecha).map(r => `<tr>
     <td>${esc(r.c.lead_nombre)}</td><td>${fmtDateOnly(r.c.fecha)}</td><td>${esc(r.l.origen || '—')}</td>
     <td>${cvEstadoSelect(r.c)}${r.c.estado === 'LLAMADA REALIZADA' && !r.sqb ? ' <span style="font-size:10.5px;color:#B26A00">entró sin SQB</span>' : ''}</td>
+    <td>${cvResultadoSelect(r.c)}${r.c.resultado === 'Cerró' && !r.venta ? ' <span style="font-size:10.5px;color:#B26A00">' + (r.sqb ? 'falta marcar "Entró a llamada"' : 'cerró sin SQB, no cuenta en la cadena') + '</span>' : ''}</td>
     <td>${cvSiNo(r.mqb)}</td>
     <td>${r.sqb ? `${cvSiNo(true)} <span style="font-size:10.5px;color:#8A6E5A">${r.c.sqb_origen === 'ghl_tag' ? 'etiqueta GHL' : 'CRM'}</span>${puede ? ` <a href="#" style="font-size:10.5px" onclick="cadenaToggleSqb('${r.c.id}', false);return false">quitar</a>` : ''}` : cvSiNo(false)}</td>
     <td>${cvSiNo(r.show)}</td><td>${cvSiNo(r.venta)}</td></tr>`).join('')
-    : '<tr><td colspan="8" style="text-align:center;color:#8A6E5A">Sin reservas en este período.</td></tr>';
+    : '<tr><td colspan="9" style="text-align:center;color:#8A6E5A">Sin reservas en este período.</td></tr>';
 }
 function cvEstadoSelect(c){
   const opts = ["LLAMADA AGENDADA","LLAMADA REALIZADA","NO SHOW","CANCELADA"];
   const label = {"LLAMADA AGENDADA":"Agendada","LLAMADA REALIZADA":"Entró a llamada","NO SHOW":"No show","CANCELADA":"Cancelada"};
   return `<select class="fi" style="width:auto" onchange="cadenaSetEstado('${c.id}', this.value)">${opts.map(e => `<option value="${e}" ${e===c.estado?'selected':''}>${label[e]}</option>`).join('')}</select>`;
 }
+function cvResultadoSelect(c){
+  return `<select class="fi" style="width:auto" onchange="cadenaSetResultado('${c.id}', this.value)">${["Pendiente","Cerró","Seguimiento","No ahora"].map(x => `<option ${x===(c.resultado||'Pendiente')?'selected':''}>${x}</option>`).join('')}</select>`;
+}
+window.cadenaSetResultado = async function(id, resultado){
+  await sql(`update calls set resultado='${esc(resultado)}' where id='${esc(id)}';`);
+  await loadCalls();
+  renderCadena();
+};
 window.cadenaSetEstado = async function(id, estado){
   await sql(`update calls set estado='${esc(estado)}' where id='${esc(id)}';`);
   await loadCalls();
