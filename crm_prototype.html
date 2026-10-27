@@ -617,9 +617,9 @@
         <button class="btn-primary" id="btnCvAplicar">Actualizar</button>
       </div>
       <div id="cvResumen"><div class="loading-note">Cargando…</div></div>
-      <div class="section-title">Reservas por validar (MQB sin SQB)</div>
+      <div class="section-title">Reservas MQB: validar SQB y marcar si entró a llamada</div>
       <table class="leads">
-        <thead><tr><th>Lead</th><th>Fecha</th><th>Hora</th><th>Origen</th><th>Estado llamada</th><th>SQB</th></tr></thead>
+        <thead><tr><th>Lead</th><th>Fecha</th><th>Hora</th><th>Origen</th><th>Estado llamada</th><th>Marcar</th></tr></thead>
         <tbody id="cvPendientes"></tbody>
       </table>
       <div class="section-title">Detalle por reserva</div>
@@ -2957,10 +2957,13 @@ async function renderCadena(){
     </div>`;
 
   const puede = cvPuedeValidar();
-  const pend = filas.filter(r => r.mqb && !r.sqb).sort((a,b) => a.c.fecha - b.c.fecha);
-  document.getElementById('cvPendientes').innerHTML = pend.length ? pend.map(r => `<tr>
+  const pend = filas.filter(r => r.mqb).sort((a,b) => a.c.fecha - b.c.fecha);
+  const bOn = 'background:#2E7D32;color:#fff;border:1px solid #2E7D32;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px';
+  const bOff = 'background:#fff;color:#5B3A29;border:1px solid #5B3A29;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px';
+  document.getElementById('cvPendientes').innerHTML = pend.length ? pend.map(r => { const entro = r.c.estado === 'LLAMADA REALIZADA'; return `<tr>
     <td>${esc(r.c.lead_nombre)}</td><td>${fmtDateOnly(r.c.fecha)}</td><td>${r.c.hora || '—'}</td><td>${esc(r.l.origen || '—')}</td><td>${esc(r.c.estado)}</td>
-    <td>${puede ? `<button class="btn-primary" onclick="cadenaToggleSqb('${r.c.id}', true)">Validar SQB</button>` : '<span style="color:#8A6E5A">Lo valida Paula</span>'}</td></tr>`).join('')
+    <td>${puede ? `<button style="${r.sqb ? bOn : bOff}" onclick="cadenaToggleSqb('${r.c.id}', ${!r.sqb})">${r.sqb ? '✔ SQB validado' : 'Validar SQB'}</button>
+      <button style="${entro ? bOn : bOff}" onclick="cadenaSetEstado('${r.c.id}', '${entro ? ((r.c.fecha && r.c.fecha < new Date()) ? 'NO SHOW' : 'LLAMADA AGENDADA') : 'LLAMADA REALIZADA'}')">${entro ? '✔ Entró a llamada' : 'Entró a llamada'}</button>` : '<span style="color:#8A6E5A">Lo valida Paula</span>'}</td></tr>`; }).join('')
     : '<tr><td colspan="6" style="text-align:center;color:#8A6E5A">Nada pendiente de validar en este período.</td></tr>';
 
   document.getElementById('cvDetalle').innerHTML = filas.length ? filas.slice().sort((a,b) => b.c.fecha - a.c.fecha).map(r => `<tr>
