@@ -2960,10 +2960,12 @@ async function renderCadena(){
   const pend = filas.filter(r => r.mqb).sort((a,b) => a.c.fecha - b.c.fecha);
   const bOn = 'background:#2E7D32;color:#fff;border:1px solid #2E7D32;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px';
   const bOff = 'background:#fff;color:#5B3A29;border:1px solid #5B3A29;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px';
-  document.getElementById('cvPendientes').innerHTML = pend.length ? pend.map(r => { const entro = r.c.estado === 'LLAMADA REALIZADA'; return `<tr>
+  document.getElementById('cvPendientes').innerHTML = pend.length ? pend.map(r => { const entro = r.c.estado === 'LLAMADA REALIZADA'; const noshow = r.c.estado === 'NO SHOW'; const vendio = r.c.resultado === 'Cerró'; return `<tr>
     <td>${esc(r.c.lead_nombre)}</td><td>${fmtDateOnly(r.c.fecha)}</td><td>${r.c.hora || '—'}</td><td>${esc(r.l.origen || '—')}</td><td>${esc(r.c.estado)}</td>
     <td>${puede ? `<button style="${r.sqb ? bOn : bOff}" onclick="cadenaToggleSqb('${r.c.id}', ${!r.sqb})">${r.sqb ? '✔ SQB validado' : 'Validar SQB'}</button>
-      <button style="${entro ? bOn : bOff}" onclick="cadenaSetEstado('${r.c.id}', '${entro ? ((r.c.fecha && r.c.fecha < new Date()) ? 'NO SHOW' : 'LLAMADA AGENDADA') : 'LLAMADA REALIZADA'}')">${entro ? '✔ Entró a llamada' : 'Entró a llamada'}</button>` : '<span style="color:#8A6E5A">Lo valida Paula</span>'}</td></tr>`; }).join('')
+      <button style="${entro ? bOn : bOff}" onclick="cadenaSetEstado('${r.c.id}', '${entro ? 'LLAMADA AGENDADA' : 'LLAMADA REALIZADA'}')">${entro ? '✔ Entró a llamada' : 'Entró a llamada'}</button>
+      <button style="${noshow ? 'background:#C62828;color:#fff;border:1px solid #C62828;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px' : bOff}" onclick="cadenaSetEstado('${r.c.id}', '${noshow ? 'LLAMADA AGENDADA' : 'NO SHOW'}')">${noshow ? '✔ No show' : 'No show'}</button>
+      <button style="${vendio ? bOn : bOff}" onclick="cadenaSetVenta('${r.c.id}', ${!vendio})">${vendio ? '✔ Venta' : 'Venta'}</button>` :'<span style="color:#8A6E5A">Lo valida Paula</span>'}</td></tr>`; }).join('')
     : '<tr><td colspan="6" style="text-align:center;color:#8A6E5A">Nada pendiente de validar en este período.</td></tr>';
 
   document.getElementById('cvDetalle').innerHTML = filas.length ? filas.slice().sort((a,b) => b.c.fecha - a.c.fecha).map(r => `<tr>
@@ -2985,6 +2987,12 @@ function cvResultadoSelect(c){
 }
 window.cadenaSetResultado = async function(id, resultado){
   await sql(`update calls set resultado='${esc(resultado)}' where id='${esc(id)}';`);
+  await loadCalls();
+  renderCadena();
+};
+window.cadenaSetVenta = async function(id, vender){
+  if (vender) await sql(`update calls set resultado='Cerró', estado='LLAMADA REALIZADA' where id='${esc(id)}';`);
+  else await sql(`update calls set resultado='Pendiente' where id='${esc(id)}';`);
   await loadCalls();
   renderCadena();
 };
