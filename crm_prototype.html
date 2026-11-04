@@ -3270,3 +3270,51 @@ async function boot(){
 }
 boot();
 </script>
+
+<script>
+(function(){
+  try {
+    var host = document.getElementById('view-gasto');
+    if (!host || document.getElementById('utmPerf')) return;
+    var box = document.createElement('div');
+    box.id = 'utmPerf';
+    box.style.cssText = 'margin:22px 0;padding:18px;border:1px solid rgba(120,100,80,.25);border-radius:14px;background:rgba(255,255,255,.55)';
+    box.innerHTML = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px"><div><div style="font-weight:700;font-size:16px">Rendimiento por campaña, conjunto y anuncio</div><div style="font-size:12px;opacity:.7;margin-top:2px">Solo leads calificados (MQB). Datos de las UTM de GoHighLevel, se actualizan solos cada hora.</div></div><div style="display:flex;gap:8px;align-items:center"><select id="utmLevel" style="padding:6px 8px;border-radius:8px"><option value="c">Por campaña</option><option value="s">Por conjunto</option><option value="a">Por anuncio</option></select><button id="utmRefresh" style="padding:6px 12px;border-radius:8px;cursor:pointer">Actualizar</button></div></div><div id="utmBody" style="overflow-x:auto"></div>';
+    host.appendChild(box);
+    var esc2 = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+    var load = async function(){
+      var body = document.getElementById('utmBody');
+      body.textContent = 'Cargando...';
+      var lvl = document.getElementById('utmLevel').value;
+      var camp = "coalesce(l.utm_campaign,'(sin UTM)')";
+      var conj = "case when l.utm_campaign is null then '-' else coalesce(l.utm_medium,'-') end";
+      var anun = "case when l.utm_campaign is null then '-' else coalesce(l.utm_content,'-') end";
+      var sel = camp + " as c1, " + (lvl === 'c' ? "''::text" : conj) + " as c2, " + (lvl === 'a' ? anun : "''::text") + " as c3";
+      var q = "select " + sel + ", count(*)::int as mqb, count(*) filter (where l.estado in ('LLAMADA AGENDADA','LLAMADA REALIZADA','NO SHOW','CLIENTE'))::int as agend, count(*) filter (where l.estado in ('LLAMADA REALIZADA','CLIENTE'))::int as shows, count(*) filter (where exists (select 1 from sales s where s.lead_id = l.id))::int as ventas, coalesce(sum((select coalesce(sum(s.monto_total),0) from sales s where s.lead_id = l.id)),0)::numeric as rev from leads l where l.calificado = true group by 1,2,3 order by 4 desc";
+      try {
+        var r = await sql(q);
+        var rows = Array.isArray(r) ? r : ((r && (r.data || r.rows)) || []);
+        if (!rows.length) { body.textContent = 'Todavía no hay leads calificados con UTM.'; return; }
+        var th = 'padding:8px 10px;text-align:left;border-bottom:1px solid rgba(120,100,80,.25);font-size:12px;opacity:.75';
+        var td = 'padding:8px 10px;border-bottom:1px solid rgba(120,100,80,.12);font-size:13px';
+        var tn = td + ';text-align:right';
+        var t = {mqb:0, agend:0, shows:0, ventas:0, rev:0};
+        var h = '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="' + th + '">Campaña</th>' + (lvl !== 'c' ? '<th style="' + th + '">Conjunto</th>' : '') + (lvl === 'a' ? '<th style="' + th + '">Anuncio</th>' : '') + '<th style="' + th + ';text-align:right">MQB</th><th style="' + th + ';text-align:right">Agendaron</th><th style="' + th + ';text-align:right">Asistieron</th><th style="' + th + ';text-align:right">Ventas</th><th style="' + th + ';text-align:right">Ingresos USD</th></tr></thead><tbody>';
+        rows.forEach(function(x){
+          var rev = Number(x.rev) || 0;
+          t.mqb += Number(x.mqb) || 0; t.agend += Number(x.agend) || 0; t.shows += Number(x.shows) || 0; t.ventas += Number(x.ventas) || 0; t.rev += rev;
+          h += '<tr><td style="' + td + '">' + esc2(x.c1) + '</td>' + (lvl !== 'c' ? '<td style="' + td + '">' + esc2(x.c2) + '</td>' : '') + (lvl === 'a' ? '<td style="' + td + '">' + esc2(x.c3) + '</td>' : '') + '<td style="' + tn + '">' + x.mqb + '</td><td style="' + tn + '">' + x.agend + '</td><td style="' + tn + '">' + x.shows + '</td><td style="' + tn + '">' + x.ventas + '</td><td style="' + tn + '">' + rev.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</td></tr>';
+        });
+        var span = lvl === 'c' ? 1 : (lvl === 's' ? 2 : 3);
+        h += '<tr style="font-weight:700"><td style="' + td + '" colspan="' + span + '">Total</td><td style="' + tn + '">' + t.mqb + '</td><td style="' + tn + '">' + t.agend + '</td><td style="' + tn + '">' + t.shows + '</td><td style="' + tn + '">' + t.ventas + '</td><td style="' + tn + '">' + t.rev.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</td></tr></tbody></table>';
+        body.innerHTML = h;
+      } catch (e) {
+        body.textContent = 'No se pudo cargar: ' + (e && e.message ? e.message : e);
+      }
+    };
+    document.getElementById('utmLevel').addEventListener('change', load);
+    document.getElementById('utmRefresh').addEventListener('click', load);
+    document.querySelectorAll('[data-view="gasto"]').forEach(function(el){ el.addEventListener('click', function(){ setTimeout(load, 400); }); });
+  } catch (e) { console.error('utmPerf', e); }
+})();
+</script>
