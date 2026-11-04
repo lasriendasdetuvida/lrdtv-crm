@@ -3433,3 +3433,35 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 <script>
 (function(){var H=['Post-venta','Baseline comercial','Cadena de valor','Success Tracker','Gasto y Presupuesto'];function hide(){document.querySelectorAll('.nav-item').forEach(function(n){if(H.some(function(h){return n.textContent.indexOf(h)>-1}))n.style.display='none'})}hide();setInterval(hide,1500)})();
 </script>
+
+<style id="themeBP">
+:root{--bg:#FFFAFB;--ink:#16090E;--muted:#8C6C77;--line:#F3E1E7;--brand:#7B1E3A;--accent:#E8789C;--pink:#FFF0F4;--r:14px;--sh:0 1px 2px rgba(60,10,30,.05),0 8px 24px rgba(60,10,30,.06)}
+html body{background:var(--bg)!important;color:var(--ink)!important}
+#loginOverlay{background:#0E0E10!important}
+#loginOverlay h1,#loginOverlay h2,#loginOverlay label{color:#16090E!important}
+#loginOverlay button{background:var(--brand)!important}
+.sidebar{background:#0E0E10!important;box-shadow:2px 0 24px rgba(0,0,0,.25)!important}
+.sidebar h1{color:#fff!important}
+.sidebar .sub{color:#E8789C!important}
+.nav-item{color:#D9D2D4!important}
+.nav-item:hover{background:rgba(232,120,156,.14)!important;color:#fff!important}
+.nav-item.active{background:rgba(232,120,156,.20)!important;color:#fff!important;box-shadow:inset 3px 0 0 #E8789C!important}
+.user-badge{color:#B9A9AE!important;border-top:1px solid rgba(255,255,255,.12)!important}
+.topbar h2,.section-title,#view-control h3,.kpi-card .num,#view-control .k b{color:var(--ink)!important}
+.topbar .date,.kpi-card .label,#view-control .k span{color:var(--muted)!important}
+.demo-banner{background:var(--pink)!important;border-color:#F6CBD8!important;color:#6B1630!important;box-shadow:none!important}
+.kpi-card,#view-control .k,.estado-banner,.priority-row,.convo-item,#view-control .cc{border-color:var(--line)!important}
+.kpi-card:hover{box-shadow:0 10px 30px rgba(123,30,58,.14)!important}
+.estado-banner.amarillo{background:#FFF1F5!important;border-color:#F2B8CB!important}
+.priority-row{border-left-color:var(--accent)!important}
+.priority-row button,.btn-wpp,#view-control button,button.primary{background:var(--brand)!important}
+.priority-row button:hover,#view-control button:hover,.btn-wpp:hover{background:#5E1530!important}
+table th{background:#FFF4F7!important;color:var(--muted)!important;border-bottom-color:var(--line)!important}
+table td{border-bottom-color:#FBEEF2!important}
+table tr:hover td{background:#FFF9FB!important}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(232,120,156,.25)!important}
+input,select,textarea{border-color:#EBD3DB!important}
+#view-control .ok{color:#1F7A4D!important}#view-control .bad{color:#B0123F!important}
+.nav-badge{background:#E8789C!important}
+</style>
+<script>(function(){function f(){document.querySelectorAll('option').forEach(function(o){if(/^(Caro Pache|Ileane)$/.test(o.textContent.trim()))o.remove()})}f();setInterval(f,2000)})();</script>
