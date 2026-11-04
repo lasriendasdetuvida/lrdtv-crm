@@ -363,6 +363,7 @@
     <div class="nav-item" data-view="postventa">🌱 Post-venta</div>
     <div class="nav-item" data-view="tracker">📈 Success Tracker</div>
     <div class="nav-item" id="navBaseline" data-view="baseline" style="display:none">🎯 Baseline comercial</div>
+    <div class="nav-item" data-view="gasto">💸 Gasto y Presupuesto</div>
     <div class="nav-item" data-view="comisiones">💰 Comisiones</div>
     <div class="user-badge" id="userBadge"></div>
   </div>
@@ -644,6 +645,35 @@
     </div>
 
     <!-- COMISIONES -->
+    <div class="view" id="view-gasto">
+      <style>
+        #view-gasto .cg-panel{background:#fff;border:1px solid #E8DDD2;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+        #view-gasto .cg-bar{height:10px;border-radius:6px;background:#EFE6DC;overflow:hidden;margin:10px 0 6px}
+        #view-gasto .cg-bar i{display:block;height:100%;background:#8A6E5A}
+        #view-gasto .cg-bar i.caution{background:#D9A441}
+        #view-gasto .cg-bar i.over{background:#B5483A}
+        #view-gasto .cg-flag{font-size:12px;font-weight:600}
+        #view-gasto .cg-flag.ok{color:#4C7A4A}#view-gasto .cg-flag.caution{color:#B07A12}#view-gasto .cg-flag.over{color:#B5483A}
+        #view-gasto .cg-cfg input[type=number]{width:110px;padding:6px 8px;border:1px solid #D8C8BC;border-radius:6px;font-size:13px}
+        #view-gasto .cg-ok{color:#4C7A4A;font-weight:600}#view-gasto .cg-warn{color:#B5483A;font-weight:600}#view-gasto .cg-na{color:#9a8a7e}
+      </style>
+      <div class="tracker-topbar">
+        <label style="font-size:13px;margin-right:8px">Mes a revisar</label>
+        <input id="cgMonth" type="month" style="padding:6px 8px;border:1px solid #D8C8BC;border-radius:6px" />
+        <button class="btn-ghost" id="cgSync" style="margin-left:10px">🔄 Sincronizar Meta Ads</button>
+      </div>
+      <div class="demo-banner" style="margin-top:10px">Del gasto en anuncios a la venta: gasto Meta (CLP) → agendamientos → llamadas realizadas → ventas. Define tu tope mensual y tus metas; el CRM calcula costo por agendamiento, costo por venta y ROAS.</div>
+      <div id="cgBudget"></div>
+      <div class="tracker-kpi-grid" id="cgKpis"></div>
+      <div class="section-title">Línea base → Real → Meta</div>
+      <div id="cgTargets"></div>
+      <div class="section-title">Día a día del mes</div>
+      <table class="leads">
+        <thead><tr><th>Fecha</th><th>Gasto (CLP)</th><th>Agendamientos</th><th>Costo por agend.</th><th>Llamadas realizadas</th><th>Ventas</th><th>Ingresos (USD)</th></tr></thead>
+        <tbody id="cgDays"></tbody>
+      </table>
+    </div>
+
     <div class="view" id="view-comisiones">
       <div class="demo-banner" id="comisionesBanner"></div>
       <div id="comisionesBody"></div>
@@ -2394,6 +2424,107 @@ document.getElementById('btnSyncCalendly').addEventListener('click', async () =>
     btn.textContent = original; btn.disabled = false;
   }
 });
+(function __cgModule(){
+// ---------- GASTO Y PRESUPUESTO (control de presupuesto → agendamientos → ventas) ----------
+const CG_DEFAULT = { presupuesto: 0, tipo_cambio: 985, base_gasto_dia: 0, base_agend_dia: 0, meta_gasto_dia: 0, meta_agend_dia: 0 };
+let cgCfg = { ...CG_DEFAULT };
+let cgMonth = new Date().toISOString().slice(0, 7);
+const cgClp = v => (v == null || !isFinite(v)) ? '—' : '$' + Math.round(v).toLocaleString('es-CL');
+const cgUsd = v => (v == null || !isFinite(v)) ? '—' : 'US$' + Math.round(v).toLocaleString('es-CL');
+const cgDiv = (a, b) => b > 0 ? a / b : null;
+async function cgLoadCfg() {
+  const r = await sql(`select value from cadena_valor_config where key='main';`);
+  if (r[0] && r[0].value) {
+    const v = typeof r[0].value === 'string' ? JSON.parse(r[0].value) : r[0].value;
+    cgCfg = { ...CG_DEFAULT, ...v };
+  }
+}
+async function cgSaveCfg() {
+  await sql(`insert into cadena_valor_config(key, value) values ('main', '${esc(JSON.stringify(cgCfg))}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();`);
+}
+async function renderGasto() {
+  await cgLoadCfg();
+  const mInput = document.getElementById('cgMonth');
+  if (mInput) mInput.value = cgMonth;
+  const [y, mo] = cgMonth.split('-').map(Number);
+  const totalDays = new Date(y, mo, 0).getDate();
+  const from = cgMonth + '-01', to = cgMonth + '-' + String(totalDays).padStart(2, '0');
+  const [sp, bk, sh, vt] = await Promise.all([
+    sql(`select fecha::text f, sum(valor) v from manual_metric_entries where campo='ad_spend' and fecha between '${from}' and '${to}' group by 1;`),
+    sql(`select fecha_creacion::date::text f, count(*) n from leads where estado in ('LLAMADA AGENDADA','LLAMADA REALIZADA','NO SHOW') and fecha_creacion::date between '${from}' and '${to}' group by 1;`),
+    sql(`select fecha_creacion::date::text f, count(*) n from leads where estado = 'LLAMADA REALIZADA' and fecha_creacion::date between '${from}' and '${to}' group by 1;`),
+    sql(`select fecha_venta::date::text f, count(*) n, sum(monto_total) r from sales where fecha_venta::date between '${from}' and '${to}' group by 1;`)
+  ]);
+  const days = {};
+  const get = f => days[f] || (days[f] = { spend: 0, bk: 0, sh: 0, sales: 0, rev: 0 });
+  sp.forEach(r => { get(r.f).spend += Number(r.v) || 0; });
+  bk.forEach(r => { get(r.f).bk += Number(r.n) || 0; });
+  sh.forEach(r => { get(r.f).sh += Number(r.n) || 0; });
+  vt.forEach(r => { const d = get(r.f); d.sales += Number(r.n) || 0; d.rev += Number(r.r) || 0; });
+  const keys = Object.keys(days).sort();
+  const tot = keys.reduce((a, k) => ({ spend: a.spend + days[k].spend, bk: a.bk + days[k].bk, sh: a.sh + days[k].sh, sales: a.sales + days[k].sales, rev: a.rev + days[k].rev }), { spend: 0, bk: 0, sh: 0, sales: 0, rev: 0 });
+  const spendDays = keys.filter(k => days[k].spend > 0).length;
+  const tc = Number(cgCfg.tipo_cambio) || 985;
+  const spendUsd = tot.spend / tc;
+  const past = cgMonth < new Date().toISOString().slice(0, 7);
+  const projected = !past && spendDays ? tot.spend / spendDays * totalDays : null;
+  const budget = Number(cgCfg.presupuesto) || 0;
+  let flagCls = 'ok', flag = 'Dentro del límite autorizado', pctUsed = 0;
+  if (budget > 0) {
+    pctUsed = tot.spend / budget;
+    if (tot.spend > budget) { flagCls = 'over'; flag = 'Límite excedido por ' + cgClp(tot.spend - budget); }
+    else if (projected != null && projected > budget) { flagCls = 'caution'; flag = 'El ritmo estimado supera el presupuesto'; }
+  }
+  document.getElementById('cgBudget').innerHTML = `<div class="cg-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><strong>Presupuesto mensual autorizado</strong><div style="font-size:12px;color:#8a7a6e">Gasto TOTAL en anuncios · en pesos chilenos (CLP)</div></div>
+      <div class="cg-cfg">Tope (CLP) <input type="number" id="cgBudgetInput" min="0" value="${budget || ''}" placeholder="0"> <button class="btn-primary" id="cgBudgetSave">Guardar</button></div>
+    </div>
+    ${budget > 0 ? `<div class="cg-bar"><i class="${flagCls === 'ok' ? '' : flagCls}" style="width:${Math.min(pctUsed * 100, 100)}%"></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:6px">
+      <span>Gastado <strong>${cgClp(tot.spend)}</strong> de ${cgClp(budget)} (${Math.round(pctUsed * 100)}%)</span>
+      <span>${tot.spend <= budget ? 'Disponible <strong>' + cgClp(budget - tot.spend) + '</strong>' : 'Exceso <strong>' + cgClp(tot.spend - budget) + '</strong>'}</span>
+      <span>${past ? 'Mes cerrado' : projected == null ? 'Sin días registrados' : 'Proyección al cierre <strong>' + cgClp(projected) + '</strong>'}</span>
+    </div><div class="cg-flag ${flagCls}" style="margin-top:6px">${flag}</div>` : `<div style="font-size:13px;margin-top:10px;color:#8a7a6e">Todavía no defines el tope mensual. Escríbelo arriba y guarda.</div>`}
+  </div>`;
+  document.getElementById('cgBudgetSave').onclick = async () => { cgCfg.presupuesto = Number(document.getElementById('cgBudgetInput').value) || 0; await cgSaveCfg(); renderGasto(); };
+  const cpb = cgDiv(tot.spend, tot.bk), cac = cgDiv(spendUsd, tot.sales), roas = spendUsd > 0 ? tot.rev / spendUsd : null;
+  const k = (l, v, s) => `<div class="t-kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="sub2">${s}</div></div>`;
+  document.getElementById('cgKpis').innerHTML =
+    k('Gasto en anuncios', cgClp(tot.spend), '≈ ' + cgUsd(spendUsd) + ' (TC ' + tc + ')') +
+    k('Agendamientos', tot.bk, 'Leads con llamada agendada, realizada o no-show') +
+    k('Costo por agendamiento', cgClp(cpb), cpb ? '≈ ' + cgUsd(cpb / tc) : 'sin agendamientos') +
+    k('Llamadas realizadas', tot.sh, tot.bk ? Math.round(tot.sh / tot.bk * 100) + '% de los agendamientos' : '—') +
+    k('Ventas', tot.sales, 'Registradas en el mes') +
+    k('Ingresos', cgUsd(tot.rev), 'Valor total de las ventas') +
+    k('Costo por venta (CAC)', cgUsd(cac), cac ? '≈ ' + cgClp(cac * tc) : 'sin ventas') +
+    k('ROAS', roas == null ? '—' : roas.toFixed(2) + 'x', 'Ingresos ÷ gasto (en USD)');
+  const realGasto = cgDiv(tot.spend, spendDays), realAg = cgDiv(tot.bk, spendDays), realCpb = cpb;
+  const baseCpb = cgDiv(Number(cgCfg.base_gasto_dia), Number(cgCfg.base_agend_dia));
+  const metaCpb = cgDiv(Number(cgCfg.meta_gasto_dia), Number(cgCfg.meta_agend_dia));
+  const st = (real, meta, lowerBetter) => (real == null || !meta) ? '<span class="cg-na">—</span>' : ((lowerBetter ? real <= meta : real >= meta) ? '<span class="cg-ok">En meta</span>' : '<span class="cg-warn">Por mejorar</span>');
+  const inp = (id, v) => `<input type="number" min="0" step="any" id="${id}" value="${v || ''}" placeholder="0">`;
+  document.getElementById('cgTargets').innerHTML = `<div class="cg-panel cg-cfg"><table class="leads"><thead><tr><th>Indicador</th><th>Línea base</th><th>Real (mes)</th><th>Meta</th><th>Estado</th></tr></thead><tbody>
+    <tr><td>Gasto por día (CLP)</td><td>${inp('cgBg', cgCfg.base_gasto_dia)}</td><td>${cgClp(realGasto)}</td><td>${inp('cgMg', cgCfg.meta_gasto_dia)}</td><td>—</td></tr>
+    <tr><td>Agendamientos por día</td><td>${inp('cgBa', cgCfg.base_agend_dia)}</td><td>${realAg == null ? '—' : realAg.toFixed(1)}</td><td>${inp('cgMa', cgCfg.meta_agend_dia)}</td><td>${st(realAg, Number(cgCfg.meta_agend_dia), false)}</td></tr>
+    <tr><td>Costo por agendamiento (CLP)</td><td>${cgClp(baseCpb)}</td><td>${cgClp(realCpb)}</td><td>${cgClp(metaCpb)}</td><td>${st(realCpb, metaCpb, true)}</td></tr>
+    <tr><td>Tipo de cambio CLP por USD</td><td colspan="2">${inp('cgTc', cgCfg.tipo_cambio)}</td><td colspan="2" style="font-size:12px;color:#8a7a6e">Se usa para pasar el gasto a dólares</td></tr>
+    </tbody></table><div style="margin-top:10px"><button class="btn-primary" id="cgCfgSave">Guardar línea base y metas</button></div></div>`;
+  document.getElementById('cgCfgSave').onclick = async () => {
+    const g = id => Number(document.getElementById(id).value) || 0;
+    cgCfg.base_gasto_dia = g('cgBg'); cgCfg.base_agend_dia = g('cgBa'); cgCfg.meta_gasto_dia = g('cgMg'); cgCfg.meta_agend_dia = g('cgMa'); cgCfg.tipo_cambio = g('cgTc') || 985;
+    await cgSaveCfg(); renderGasto();
+  };
+  document.getElementById('cgDays').innerHTML = keys.length ? keys.slice().reverse().map(f => {
+    const d = days[f], p = f.split('-');
+    return `<tr><td>${p[2]}/${p[1]}</td><td>${d.spend ? cgClp(d.spend) : '—'}</td><td>${d.bk}</td><td>${d.bk && d.spend ? cgClp(d.spend / d.bk) : '—'}</td><td>${d.sh}</td><td>${d.sales}</td><td>${d.rev ? cgUsd(d.rev) : '—'}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" style="color:#8a7a6e">Sin datos este mes. Usa "Sincronizar Meta Ads" para traer el gasto.</td></tr>';
+}
+document.querySelector('.nav-item[data-view="gasto"]').addEventListener('click', () => { renderGasto(); });
+document.getElementById('cgMonth').addEventListener('change', e => { if (e.target.value) { cgMonth = e.target.value; renderGasto(); } });
+document.getElementById('cgSync').addEventListener('click', () => { const b = document.getElementById('btnSyncMetaAds'); if (b) { b.click(); setTimeout(renderGasto, 6000); } });
+})();
+
 // ---------- SINCRONIZACIÓN CON META ADS (Windsor.ai, bajo demanda) ----------
 const WINDSOR_TOOLS = {
   getData: 'mcp__1c122360-5269-4f11-9b60-f4701c86a8e8__get_data',
